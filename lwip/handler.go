@@ -1,7 +1,7 @@
 package lwip
 
 import (
-	tun2socks "github.com/v2dev/go-tun2socks"
+	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 var tcpConnectionHandler tun2socks.ConnectionHandler

@@ -9,7 +9,7 @@ import (
 	"log"
 	"unsafe"
 
-	tun2socks "github.com/v2dev/go-tun2socks"
+	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 // These exported callback functions must be placed in a seperated file.

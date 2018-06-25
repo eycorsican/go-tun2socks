@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	tun2socks "github.com/v2dev/go-tun2socks"
-	"github.com/v2dev/go-tun2socks/lwip"
+	tun2socks "github.com/eycorsican/go-tun2socks"
+	"github.com/eycorsican/go-tun2socks/lwip"
 )
 
 type tcpHandler struct {

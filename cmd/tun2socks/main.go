@@ -9,9 +9,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/v2dev/go-tun2socks/lwip"
-	"github.com/v2dev/go-tun2socks/proxy/socks"
-	"github.com/v2dev/go-tun2socks/tun"
+	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/proxy/socks"
+	"github.com/eycorsican/go-tun2socks/tun"
 )
 
 func main() {
