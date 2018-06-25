@@ -14,9 +14,9 @@ Tested and worked on macOS, Linux and iOS (as a library).
 ## Build
 
 ```sh
-git clone https://github.com/eycorsican/go-tun2socks.git go-tun2socks
-cd go-tun2socks
-go get -u ./...
+go get github.com/eycorsican/go-tun2socks
+cd $GOPATH/src/github.com/eycorsican/go-tun2socks
+go get ./...
 make clean && make build
 ./build/tun2socks -h
 ```
