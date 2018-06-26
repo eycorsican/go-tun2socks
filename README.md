@@ -4,6 +4,26 @@ A tun2socks implementation written in Go.
 
 Tested and worked on macOS, Linux and iOS (as a library).
 
+## Overview
+
+```
+                                      lwip.Setup()
+                                           +
+                                           |
+                                           |
+                                           |
+                                           |                TCP/UDP             lwip.RegisterTCPConnectionHandler()
+                                           |
+                          lwip.Input()     |           tun2socks.Connection     lwip.RegisterUDPConnectionHandler()
+                                           v
+Application +------> TUN +-----------> lwIP stack +------------------------------> tun2socks.ConnectionHandler +-------> SOCKS5 server +--> Destination
+
+
+                         <-----------+
+                    lwip.RegisterOutputFn()
+
+```
+
 ## Features
 
 - Support both TCP and UDP (only IPv4 for now)
