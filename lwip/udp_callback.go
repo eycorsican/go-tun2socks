@@ -1,7 +1,7 @@
 package lwip
 
 /*
-#cgo CFLAGS: -I./include
+#cgo CFLAGS: -I./src/include
 #include "lwip/udp.h"
 
 extern void UDPRecvFn(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port, const ip_addr_t *dest_addr, u16_t dest_port);

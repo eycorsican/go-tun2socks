@@ -1,7 +1,7 @@
 package lwip
 
 /*
-#cgo CFLAGS: -I./include
+#cgo CFLAGS: -I./src/include
 #include "lwip/tcp.h"
 #include <stdlib.h>
 

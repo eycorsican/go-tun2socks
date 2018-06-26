@@ -7,6 +7,7 @@ CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
 LWIPDIR=$(shell pwd)/lwip
 LWIPSRCDIR=$(LWIPDIR)/src
+OS=$(shell uname -s)
 
 COREFILES=$(LWIPSRCDIR)/core/init.c \
     $(LWIPSRCDIR)/core/def.c \
@@ -47,14 +48,7 @@ CORE6FILES=$(LWIPSRCDIR)/core/ipv6/dhcp6.c \
 
 CUSTOMFILES=$(LWIPSRCDIR)/custom/sys_arch.c \
 
-all: run
-
-run:
-	cp $(COREFILES) $(LWIPDIR)/
-	cp $(CORE4FILES) $(LWIPDIR)/
-	cp $(CORE6FILES) $(LWIPDIR)/
-	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cd $(CMDDIR) && $(GORUN)
+all: build
 
 build:
 	mkdir -p $(BUILDDIR)
@@ -62,7 +56,13 @@ build:
 	cp $(CORE4FILES) $(LWIPDIR)/
 	cp $(CORE6FILES) $(LWIPDIR)/
 	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cd $(CMDDIR) && $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
+
+ifeq ($(OS), Darwin)
+	cd $(CMDDIR) && CGO_CPPFLAGS='-DDARWIN=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
+else ifeq ($(OS), Linux)
+	cd $(CMDDIR) && CGO_CPPFLAGS='-DLINUX=1' $(GOBUILD) -gcflags "-DLINUX=1" -o $(BUILDDIR)/$(PROGRAM) -v
+endif
+
 	rm -rf $(LWIPDIR)/*.c
 
 copy:

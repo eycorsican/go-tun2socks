@@ -12,9 +12,7 @@ u32_t sys_now(void) {
     
     return (u32_t)(now);
 }
-#endif /* DARWIN */
-
-#if LINUX
+#elif LINUX
 #include <sys/time.h>
 
 u32_t sys_now(void)
@@ -23,4 +21,4 @@ u32_t sys_now(void)
     gettimeofday(&te, NULL);
     return te.tv_sec*1000LL + te.tv_usec/1000;
 }
-#endif /* LINUX */
+#endif

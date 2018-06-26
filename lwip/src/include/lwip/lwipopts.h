@@ -30,8 +30,9 @@
 #ifndef LWIP_CUSTOM_LWIPOPTS_H
 #define LWIP_CUSTOM_LWIPOPTS_H
 
-#define LINUX 1
-#define DARWIN 0
+/*
+#define DARWIN
+*/
 
 // enable tun2socks logic
 #define TUN2SOCKS 1
