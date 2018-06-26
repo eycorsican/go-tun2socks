@@ -16,7 +16,7 @@ Tested and worked on macOS, Linux and iOS (as a library).
 ```sh
 go get github.com/eycorsican/go-tun2socks
 cd $GOPATH/src/github.com/eycorsican/go-tun2socks
-go get ./...
+go get -d ./...
 make clean && make build
 ./build/tun2socks -h
 ```
