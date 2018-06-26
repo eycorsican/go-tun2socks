@@ -28,11 +28,11 @@ Note that the name `tun1` maybe not available, make sure use `ifconfig` or `ip a
 ./build/tun2socks -tunName tun1 -tunAddr 240.0.0.2 -tunGw 240.0.0.1 -proxyType socks -proxyServer 1.2.3.4:1086
 ```
 
-## Configure Route Table
+## Configure Routing Table
 
 Suppose your original gateway is 192.168.0.1. The proxy server address is 1.2.3.4.
 
-The following command will need root permissions.
+The following commands will need root permissions.
 
 ### macOS
 
@@ -83,6 +83,10 @@ Add a route for your proxy server to bypass the tun interface:
 ```sh
 ip route add 1.2.3.4/32 via 192.168.0.1
 ```
+
+## What happened to lwIP?
+
+Take a look at this repo: https://github.com/eycorsican/lwip
 
 ## Acknowledgements
 - https://github.com/zhuhaow/tun2socks
