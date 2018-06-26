@@ -60,7 +60,7 @@ build:
 ifeq ($(OS), Darwin)
 	cd $(CMDDIR) && CGO_CPPFLAGS='-DDARWIN=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
 else ifeq ($(OS), Linux)
-	cd $(CMDDIR) && CGO_CPPFLAGS='-DLINUX=1' $(GOBUILD) -gcflags "-DLINUX=1" -o $(BUILDDIR)/$(PROGRAM) -v
+	cd $(CMDDIR) && CGO_CPPFLAGS='-DLINUX=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
 endif
 
 	rm -rf $(LWIPDIR)/*.c
