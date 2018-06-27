@@ -46,7 +46,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			return
 		}
 		udpConns.Store(connId, conn)
-		log.Printf("created new UDP connection %v <-> %v, total: %v", conn.(tun2socks.Connection).LocalAddr().String(), conn.(tun2socks.Connection).RemoteAddr().String(), GetSyncMapLen(udpConns))
+		log.Printf("created new UDP connection %v <-> %v", conn.(tun2socks.Connection).LocalAddr().String(), conn.(tun2socks.Connection).RemoteAddr().String())
 	}
 
 	buf := NewBytes()

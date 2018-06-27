@@ -209,6 +209,6 @@ func (conn *tcpConn) Release() {
 	if _, found := tcpConns.Load(conn.connKey); found {
 		FreeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
-		log.Printf("released a TCP connection, total: %v", GetSyncMapLen(tcpConns))
+		log.Printf("released a TCP connection")
 	}
 }
