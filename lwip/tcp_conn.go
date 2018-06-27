@@ -39,7 +39,6 @@ func checkTCPConns() {
 		state := c.(*tcpConn).pcb.state
 		if c.(*tcpConn).pcb == nil ||
 			state == C.CLOSED ||
-			state == C.TIME_WAIT ||
 			state == C.CLOSE_WAIT {
 			c.(*tcpConn).Release()
 		}
