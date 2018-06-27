@@ -7,6 +7,7 @@ CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
 LWIPDIR=$(shell pwd)/lwip
 LWIPSRCDIR=$(LWIPDIR)/src
+LWIPHEADERSDIR=$(LWIPDIR)/src/include/lwip
 OS=$(shell uname -s)
 
 COREFILES=$(LWIPSRCDIR)/core/init.c \
@@ -59,7 +60,7 @@ build:
 	cp $(CORE4FILES) $(LWIPDIR)/
 	cp $(CORE6FILES) $(LWIPDIR)/
 	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cp -r $(CUSTOMHEADERFILES) $(LWIPDIR)/
+	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
 
 ifeq ($(OS), Darwin)
 	cd $(CMDDIR) && CGO_CPPFLAGS='-DDARWIN=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
@@ -68,15 +69,19 @@ else ifeq ($(OS), Linux)
 endif
 
 	rm -rf $(LWIPDIR)/*.c
+	rm -rf $(LWIPHEADERSDIR)/arch
+	rm -rf $(LWIPHEADERSDIR)/lwipopts.h
 
 copy:
 	cp $(COREFILES) $(LWIPDIR)/
 	cp $(CORE4FILES) $(LWIPDIR)/
 	cp $(CORE6FILES) $(LWIPDIR)/
 	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cp -r $(CUSTOMHEADERFILES) $(LWIPDIR)/
+	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
 
 clean:
 	$(GOCLEAN) -cache
-	rm -rf $(LWIPDIR)/*.c
 	rm -rf $(BUILDDIR)
+	rm -rf $(LWIPDIR)/*.c
+	rm -rf $(LWIPHEADERSDIR)/arch
+	rm -rf $(LWIPHEADERSDIR)/lwipopts.h
