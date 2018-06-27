@@ -46,7 +46,10 @@ CORE6FILES=$(LWIPSRCDIR)/core/ipv6/dhcp6.c \
     $(LWIPSRCDIR)/core/ipv6/mld6.c \
     $(LWIPSRCDIR)/core/ipv6/nd6.c
 
-CUSTOMFILES=$(LWIPSRCDIR)/custom/sys_arch.c \
+CUSTOMFILES=$(LWIPSRCDIR)/custom/sys_arch.c
+
+CUSTOMHEADERFILES=$(LWIPSRCDIR)/custom/arch \
+    $(LWIPSRCDIR)/custom/lwipopts.h
 
 all: build
 
@@ -56,6 +59,7 @@ build:
 	cp $(CORE4FILES) $(LWIPDIR)/
 	cp $(CORE6FILES) $(LWIPDIR)/
 	cp $(CUSTOMFILES) $(LWIPDIR)/
+	cp -r $(CUSTOMHEADERFILES) $(LWIPDIR)/
 
 ifeq ($(OS), Darwin)
 	cd $(CMDDIR) && CGO_CPPFLAGS='-DDARWIN=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
@@ -70,6 +74,7 @@ copy:
 	cp $(CORE4FILES) $(LWIPDIR)/
 	cp $(CORE6FILES) $(LWIPDIR)/
 	cp $(CUSTOMFILES) $(LWIPDIR)/
+	cp -r $(CUSTOMHEADERFILES) $(LWIPDIR)/
 
 clean:
 	$(GOCLEAN) -cache
