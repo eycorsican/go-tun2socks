@@ -108,6 +108,12 @@ ip route add 1.2.3.4/32 via 192.168.0.1
 
 Take a look at this repo: https://github.com/eycorsican/lwip
 
+## TODO
+- Support Windows
+- Built-in routing rules and routing table management
+- Support IPv6
+- Support ICMP packets forwarding
+
 ## Acknowledgements
 - https://github.com/zhuhaow/tun2socks
 - https://github.com/yinghuocho/gotun2socks
