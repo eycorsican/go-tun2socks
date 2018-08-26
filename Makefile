@@ -6,92 +6,95 @@ GOCLEAN=$(GOCMD) clean
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
-LWIPDIR=$(shell pwd)/lwip
-LWIPSRCDIR=$(LWIPDIR)/src
-LWIPHEADERSDIR=$(LWIPDIR)/src/include/lwip
+LWIP_DIR=$(shell pwd)/lwip
+LWIP_SRC_DIR=$(LWIP_DIR)/src
+LWIP_INCLUDE_DIR=$(LWIP_SRC_DIR)/include
+LWIP_HEADERS_DIR=$(LWIP_INCLUDE_DIR)/lwip
 
-COREFILES=$(LWIPSRCDIR)/core/init.c \
-    $(LWIPSRCDIR)/core/def.c \
-    $(LWIPSRCDIR)/core/dns.c \
-    $(LWIPSRCDIR)/core/inet_chksum.c \
-    $(LWIPSRCDIR)/core/ip.c \
-    $(LWIPSRCDIR)/core/mem.c \
-    $(LWIPSRCDIR)/core/memp.c \
-    $(LWIPSRCDIR)/core/netif.c \
-    $(LWIPSRCDIR)/core/pbuf.c \
-    $(LWIPSRCDIR)/core/raw.c \
-    $(LWIPSRCDIR)/core/stats.c \
-    $(LWIPSRCDIR)/core/sys.c \
-    $(LWIPSRCDIR)/core/tcp.c \
-    $(LWIPSRCDIR)/core/tcp_in.c \
-    $(LWIPSRCDIR)/core/tcp_out.c \
-    $(LWIPSRCDIR)/core/timeouts.c \
-    $(LWIPSRCDIR)/core/udp.c
+CORE_FILES=$(LWIP_SRC_DIR)/core/init.c \
+    $(LWIP_SRC_DIR)/core/def.c \
+    $(LWIP_SRC_DIR)/core/dns.c \
+    $(LWIP_SRC_DIR)/core/inet_chksum.c \
+    $(LWIP_SRC_DIR)/core/ip.c \
+    $(LWIP_SRC_DIR)/core/mem.c \
+    $(LWIP_SRC_DIR)/core/memp.c \
+    $(LWIP_SRC_DIR)/core/netif.c \
+    $(LWIP_SRC_DIR)/core/pbuf.c \
+    $(LWIP_SRC_DIR)/core/raw.c \
+    $(LWIP_SRC_DIR)/core/stats.c \
+    $(LWIP_SRC_DIR)/core/sys.c \
+    $(LWIP_SRC_DIR)/core/tcp.c \
+    $(LWIP_SRC_DIR)/core/tcp_in.c \
+    $(LWIP_SRC_DIR)/core/tcp_out.c \
+    $(LWIP_SRC_DIR)/core/timeouts.c \
+    $(LWIP_SRC_DIR)/core/udp.c
 
-CORE4FILES=$(LWIPSRCDIR)/core/ipv4/autoip.c \
-    $(LWIPSRCDIR)/core/ipv4/dhcp.c \
-    $(LWIPSRCDIR)/core/ipv4/etharp.c \
-    $(LWIPSRCDIR)/core/ipv4/icmp.c \
-    $(LWIPSRCDIR)/core/ipv4/igmp.c \
-    $(LWIPSRCDIR)/core/ipv4/ip4_frag.c \
-    $(LWIPSRCDIR)/core/ipv4/ip4.c \
-    $(LWIPSRCDIR)/core/ipv4/ip4_addr.c
+CORE_4_FILES=$(LWIP_SRC_DIR)/core/ipv4/autoip.c \
+    $(LWIP_SRC_DIR)/core/ipv4/dhcp.c \
+    $(LWIP_SRC_DIR)/core/ipv4/etharp.c \
+    $(LWIP_SRC_DIR)/core/ipv4/icmp.c \
+    $(LWIP_SRC_DIR)/core/ipv4/igmp.c \
+    $(LWIP_SRC_DIR)/core/ipv4/ip4_frag.c \
+    $(LWIP_SRC_DIR)/core/ipv4/ip4.c \
+    $(LWIP_SRC_DIR)/core/ipv4/ip4_addr.c
 
-CORE6FILES=$(LWIPSRCDIR)/core/ipv6/dhcp6.c \
-    $(LWIPSRCDIR)/core/ipv6/ethip6.c \
-    $(LWIPSRCDIR)/core/ipv6/icmp6.c \
-    $(LWIPSRCDIR)/core/ipv6/inet6.c \
-    $(LWIPSRCDIR)/core/ipv6/ip6.c \
-    $(LWIPSRCDIR)/core/ipv6/ip6_addr.c \
-    $(LWIPSRCDIR)/core/ipv6/ip6_frag.c \
-    $(LWIPSRCDIR)/core/ipv6/mld6.c \
-    $(LWIPSRCDIR)/core/ipv6/nd6.c
+CORE_6_FILES=$(LWIP_SRC_DIR)/core/ipv6/dhcp6.c \
+    $(LWIP_SRC_DIR)/core/ipv6/ethip6.c \
+    $(LWIP_SRC_DIR)/core/ipv6/icmp6.c \
+    $(LWIP_SRC_DIR)/core/ipv6/inet6.c \
+    $(LWIP_SRC_DIR)/core/ipv6/ip6.c \
+    $(LWIP_SRC_DIR)/core/ipv6/ip6_addr.c \
+    $(LWIP_SRC_DIR)/core/ipv6/ip6_frag.c \
+    $(LWIP_SRC_DIR)/core/ipv6/mld6.c \
+    $(LWIP_SRC_DIR)/core/ipv6/nd6.c
 
-CUSTOMFILES=$(LWIPSRCDIR)/custom/sys_arch.c
-
-CUSTOMHEADERFILES=$(LWIPSRCDIR)/custom/arch \
-    $(LWIPSRCDIR)/custom/lwipopts.h
+CUSTOM_SRC_FILES=$(LWIP_SRC_DIR)/custom/sys_arch.c
+CUSTOM_INCLUDE_FILES=$(LWIP_SRC_DIR)/custom/arch
+CUSTOM_HEADER_FILES=$(LWIP_SRC_DIR)/custom/lwipopts.h
 
 all: build
 
 build:
 	mkdir -p $(BUILDDIR)
-	cp $(COREFILES) $(LWIPDIR)/
-	cp $(CORE4FILES) $(LWIPDIR)/
-	cp $(CORE6FILES) $(LWIPDIR)/
-	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
+	cp $(CORE_FILES) $(LWIP_DIR)/
+	cp $(CORE_4_FILES) $(LWIP_DIR)/
+	cp $(CORE_6_FILES) $(LWIP_DIR)/
+	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
+	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
+	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
 
 	cd $(CMDDIR) && $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
 
-	rm -rf $(LWIPDIR)/*.c
-	rm -rf $(LWIPHEADERSDIR)/arch
-	rm -rf $(LWIPHEADERSDIR)/lwipopts.h
+	rm -rf $(LWIP_DIR)/*.c
+	rm -rf $(LWIP_INCLUDE_DIR)/arch
+	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
 
 xbuild:
 	mkdir -p $(BUILDDIR)
-	cp $(COREFILES) $(LWIPDIR)/
-	cp $(CORE4FILES) $(LWIPDIR)/
-	cp $(CORE6FILES) $(LWIPDIR)/
-	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
+	cp $(CORE_FILES) $(LWIP_DIR)/
+	cp $(CORE_4_FILES) $(LWIP_DIR)/
+	cp $(CORE_6_FILES) $(LWIP_DIR)/
+	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
+	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
+	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
 
-	cd $(BUILDDIR) && $(XGOCMD) --targets=linux/amd64,darwin/amd64,ios/* $(CMDDIR)
+	cd $(BUILDDIR) && $(XGOCMD) --targets=windows/amd64,linux/amd64,darwin/amd64,ios/* $(CMDDIR)
 
-	rm -rf $(LWIPDIR)/*.c
-	rm -rf $(LWIPHEADERSDIR)/arch
-	rm -rf $(LWIPHEADERSDIR)/lwipopts.h
+	rm -rf $(LWIP_DIR)/*.c
+	rm -rf $(LWIP_INCLUDE_DIR)/arch
+	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
 
 copy:
-	cp $(COREFILES) $(LWIPDIR)/
-	cp $(CORE4FILES) $(LWIPDIR)/
-	cp $(CORE6FILES) $(LWIPDIR)/
-	cp $(CUSTOMFILES) $(LWIPDIR)/
-	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
+	cp $(CORE_FILES) $(LWIP_DIR)/
+	cp $(CORE_4_FILES) $(LWIP_DIR)/
+	cp $(CORE_6_FILES) $(LWIP_DIR)/
+	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
+	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
+	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
 
 clean:
 	$(GOCLEAN) -cache
 	rm -rf $(BUILDDIR)
-	rm -rf $(LWIPDIR)/*.c
-	rm -rf $(LWIPHEADERSDIR)/arch
-	rm -rf $(LWIPHEADERSDIR)/lwipopts.h
+	rm -rf $(LWIP_DIR)/*.c
+	rm -rf $(LWIP_INCLUDE_DIR)/arch
+	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h

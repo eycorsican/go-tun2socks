@@ -18,6 +18,8 @@ func main() {
 	tunName := flag.String("tunName", "tun1", "TUN interface name.")
 	tunAddr := flag.String("tunAddr", "240.0.0.2", "TUN interface address.")
 	tunGw := flag.String("tunGw", "240.0.0.1", "TUN interface gateway.")
+	tunMask := flag.String("tunMask", "255.255.255.0", "TUN interface netmask.")
+	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface.")
 	proxyType := flag.String("proxyType", "socks", "Proxy handler type.")
 	proxyServer := flag.String("proxyServer", "1.1.1.1:1087", "Proxy server address.")
 
@@ -35,7 +37,8 @@ func main() {
 	proxyPort := uint16(port)
 
 	// Open the tun device.
-	dev, err := tun.OpenTunDevice(*tunName, *tunAddr, *tunGw, "24", []string{})
+	dnsServers := strings.Split(*dnsServer, ",")
+	dev, err := tun.OpenTunDevice(*tunName, *tunAddr, *tunGw, *tunMask, dnsServers)
 	if err != nil {
 		log.Fatalf("failed to open tun device: %v", err)
 	}
