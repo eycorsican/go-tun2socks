@@ -4,7 +4,7 @@
 
 A tun2socks implementation written in Go.
 
-Tested and worked on macOS, Linux and iOS (as a library).
+Tested and worked on macOS, Linux, Windows and iOS (as a library).
 
 ## Overview
 
@@ -60,10 +60,11 @@ ls ./build
 
 ## Run
 
-Note that the name `tun1` maybe not available, make sure use `ifconfig` or `ip addr` to check it out.
 ```sh
 ./build/tun2socks -tunName tun1 -tunAddr 240.0.0.2 -tunGw 240.0.0.1 -proxyType socks -proxyServer 1.2.3.4:1086
 ```
+
+Note that the TUN device may have a different name, and it should be a different name on Windows unless you have renamed it, so make sure use `ifconfig`, `ipconfig` or `ip addr` to check it out.
 
 ## Configure Routing Table
 
@@ -121,12 +122,27 @@ Add a route for your proxy server to bypass the tun interface:
 ip route add 1.2.3.4/32 via 192.168.0.1
 ```
 
+### Windows
+
+To create a tun device on Windows, you need [Tap-windows](https://openvpn.net/index.php/download/community-downloads.html), refer [here](https://code.google.com/archive/p/badvpn/wikis/tun2socks.wiki) for more information.
+
+Add our tun interface as the default gateway:
+
+```sh
+route add 0.0.0.0 mask 0.0.0.0 192.168.0.1 metric 6
+```
+
+Add a route for your proxy server to bypass the tun interface:
+
+```sh
+route add 1.2.3.4 192.168.0.1 metric 5
+```
+
 ## What happened to lwIP?
 
 Take a look at this repo: https://github.com/eycorsican/lwip
 
 ## TODO
-- Support Windows
 - Built-in routing rules and routing table management
 - Support IPv6
 - Support ICMP packets forwarding
