@@ -1,6 +1,6 @@
 language: go
 go:
   - "1.11"
-install: go get -t ./...
+install: go get -d ./...
 script: make build
 
