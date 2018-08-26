@@ -76,7 +76,7 @@ xbuild:
 	cp $(CUSTOMFILES) $(LWIPDIR)/
 	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
 
-	cd $(BUILDDIR) && $(XGOCMD) --targets=linux/amd64,darwin/amd64 $(CMDDIR)
+	cd $(BUILDDIR) && $(XGOCMD) --targets=linux/amd64,darwin/amd64,ios/* $(CMDDIR)
 
 	rm -rf $(LWIPDIR)/*.c
 	rm -rf $(LWIPHEADERSDIR)/arch
