@@ -43,9 +43,17 @@ make clean && make build
 ./build/tun2socks -h
 ```
 
-An alternate way to build (or cross compile) tun2socks is to use [`xgo`](https://github.com/karalabe/xgo), to use `xgo`, you also need `docker`. Assumed you already have `xgo` and `docker` installed:
+An alternate way to build (or cross compile) tun2socks is to use [`xgo`](https://github.com/karalabe/xgo), to use `xgo`, you also need `docker`:
 
 ```sh
+# install docker: https://docs.docker.com/install
+
+# install xgo
+go get github.com/karalabe/xgo
+
+go get github.com/eycorsican/go-tun2socks
+cd $GOPATH/src/github.com/eycorsican/go-tun2socks
+go get -d ./...
 make clean && make xbuild
 ls ./build
 ```
