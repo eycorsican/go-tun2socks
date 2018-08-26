@@ -3,6 +3,7 @@ XGOCMD=xgo
 GOBUILD=$(GOCMD) build
 GORUN=$(GOCMD) run
 GOCLEAN=$(GOCMD) clean
+LDFLAGS='-s -w'
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
@@ -52,49 +53,46 @@ CUSTOM_SRC_FILES=$(LWIP_SRC_DIR)/custom/sys_arch.c
 CUSTOM_INCLUDE_FILES=$(LWIP_SRC_DIR)/custom/arch
 CUSTOM_HEADER_FILES=$(LWIP_SRC_DIR)/custom/lwipopts.h
 
+define copy_files
+	cp $(CORE_FILES) $(LWIP_DIR)/
+	cp $(CORE_4_FILES) $(LWIP_DIR)/
+	cp $(CORE_6_FILES) $(LWIP_DIR)/
+	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
+	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
+	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
+endef
+
+define clear_files
+	rm -rf $(LWIP_DIR)/*.c
+	rm -rf $(LWIP_INCLUDE_DIR)/arch
+	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
+endef
+
+define with_copied_files
+	$(call copy_files)
+	eval $(1)
+	$(call clear_files)
+endef
+
+BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags $(LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v"
+XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(LDFLAGS) --targets=*/* $(CMDDIR)"
+RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(LDFLAGS) --targets=linux/amd64,darwin/amd64,windows/amd64 $(CMDDIR)"
+
 all: build
 
 build:
-	mkdir -p $(BUILDDIR)
-	cp $(CORE_FILES) $(LWIP_DIR)/
-	cp $(CORE_4_FILES) $(LWIP_DIR)/
-	cp $(CORE_6_FILES) $(LWIP_DIR)/
-	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
-	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
-	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
-
-	cd $(CMDDIR) && $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
-
-	rm -rf $(LWIP_DIR)/*.c
-	rm -rf $(LWIP_INCLUDE_DIR)/arch
-	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
+	$(call with_copied_files,$(BUILD_CMD))
 
 xbuild:
-	mkdir -p $(BUILDDIR)
-	cp $(CORE_FILES) $(LWIP_DIR)/
-	cp $(CORE_4_FILES) $(LWIP_DIR)/
-	cp $(CORE_6_FILES) $(LWIP_DIR)/
-	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
-	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
-	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
+	$(call with_copied_files,$(XBUILD_CMD))
 
-	cd $(BUILDDIR) && $(XGOCMD) --targets=*/* $(CMDDIR)
-
-	rm -rf $(LWIP_DIR)/*.c
-	rm -rf $(LWIP_INCLUDE_DIR)/arch
-	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
+release:
+	$(call with_copied_files,$(RELEASE_CMD))
 
 copy:
-	cp $(CORE_FILES) $(LWIP_DIR)/
-	cp $(CORE_4_FILES) $(LWIP_DIR)/
-	cp $(CORE_6_FILES) $(LWIP_DIR)/
-	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
-	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
-	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
+	$(call copy_files)
 
 clean:
 	$(GOCLEAN) -cache
 	rm -rf $(BUILDDIR)
-	rm -rf $(LWIP_DIR)/*.c
-	rm -rf $(LWIP_INCLUDE_DIR)/arch
-	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
+	$(call clear_files)
