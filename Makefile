@@ -1,4 +1,5 @@
 GOCMD=go
+XGOCMD=xgo
 GOBUILD=$(GOCMD) build
 GORUN=$(GOCMD) run
 GOCLEAN=$(GOCMD) clean
@@ -8,7 +9,6 @@ PROGRAM=tun2socks
 LWIPDIR=$(shell pwd)/lwip
 LWIPSRCDIR=$(LWIPDIR)/src
 LWIPHEADERSDIR=$(LWIPDIR)/src/include/lwip
-OS=$(shell uname -s)
 
 COREFILES=$(LWIPSRCDIR)/core/init.c \
     $(LWIPSRCDIR)/core/def.c \
@@ -62,11 +62,21 @@ build:
 	cp $(CUSTOMFILES) $(LWIPDIR)/
 	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
 
-ifeq ($(OS), Darwin)
-	cd $(CMDDIR) && CGO_CPPFLAGS='-DDARWIN=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
-else ifeq ($(OS), Linux)
-	cd $(CMDDIR) && CGO_CPPFLAGS='-DLINUX=1' $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
-endif
+	cd $(CMDDIR) && $(GOBUILD) -o $(BUILDDIR)/$(PROGRAM) -v
+
+	rm -rf $(LWIPDIR)/*.c
+	rm -rf $(LWIPHEADERSDIR)/arch
+	rm -rf $(LWIPHEADERSDIR)/lwipopts.h
+
+xbuild:
+	mkdir -p $(BUILDDIR)
+	cp $(COREFILES) $(LWIPDIR)/
+	cp $(CORE4FILES) $(LWIPDIR)/
+	cp $(CORE6FILES) $(LWIPDIR)/
+	cp $(CUSTOMFILES) $(LWIPDIR)/
+	cp -r $(CUSTOMHEADERFILES) $(LWIPHEADERSDIR)/
+
+	cd $(BUILDDIR) && $(XGOCMD) --targets=linux/amd64,darwin/amd64 $(CMDDIR)
 
 	rm -rf $(LWIPDIR)/*.c
 	rm -rf $(LWIPHEADERSDIR)/arch
