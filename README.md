@@ -129,7 +129,7 @@ To create a tun device on Windows, you need [Tap-windows](https://openvpn.net/in
 Add our tun interface as the default gateway:
 
 ```sh
-route add 0.0.0.0 mask 0.0.0.0 192.168.0.1 metric 6
+route add 0.0.0.0 mask 0.0.0.0 240.0.0.2 metric 6
 ```
 
 Add a route for your proxy server to bypass the tun interface:
