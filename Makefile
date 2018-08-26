@@ -81,12 +81,15 @@ RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(LDFLAGS) --targets=linux/amd
 all: build
 
 build:
+	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(BUILD_CMD))
 
 xbuild:
+	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(XBUILD_CMD))
 
 release:
+	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(RELEASE_CMD))
 
 copy:
