@@ -35,6 +35,8 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 
 ## Build
 
+`go-tun2socks` is using `cgo`, thus a C compiler is required.
+
 ```sh
 go get github.com/eycorsican/go-tun2socks
 cd $GOPATH/src/github.com/eycorsican/go-tun2socks
@@ -66,7 +68,7 @@ ls ./build
 
 Note that the TUN device may have a different name, and it should be a different name on Windows unless you have renamed it, so make sure use `ifconfig`, `ipconfig` or `ip addr` to check it out.
 
-## Configure Routing Table
+## Create TUN device and Configure Routing Table
 
 Suppose your original gateway is 192.168.0.1. The proxy server address is 1.2.3.4.
 
@@ -74,7 +76,7 @@ The following commands will need root permissions.
 
 ### macOS
 
-The program will automatically create a tun device for you on macOS. To show the created tun device, use ifconfig.
+The program will automatically create a TUN device for you on macOS. To show the created TUN device, use ifconfig.
 
 Delete original gateway:
 
@@ -82,13 +84,13 @@ Delete original gateway:
 route delete default
 ```
 
-Add our tun interface as the default gateway:
+Add our TUN interface as the default gateway:
 
 ```sh
 route add default 240.0.0.2
 ```
 
-Add a route for your proxy server to bypass the tun interface:
+Add a route for your proxy server to bypass the TUN interface:
 
 ```sh
 route add 1.2.3.4/32 192.168.0.1
@@ -96,7 +98,7 @@ route add 1.2.3.4/32 192.168.0.1
 
 ### Linux
 
-The program will not create the tun device for you on Linux. You need to create the tun device by yourself:
+The program will not create the TUN device for you on Linux. You need to create the TUN device by yourself:
 
 ```sh
 ip tuntap add mode tun dev tun1
@@ -110,13 +112,13 @@ Delete original gateway:
 ip route del default
 ```
 
-Add our tun interface as the default gateway:
+Add our TUN interface as the default gateway:
 
 ```sh
 ip route add default via 240.0.0.2
 ```
 
-Add a route for your proxy server to bypass the tun interface:
+Add a route for your proxy server to bypass the TUN interface:
 
 ```sh
 ip route add 1.2.3.4/32 via 192.168.0.1
@@ -124,15 +126,15 @@ ip route add 1.2.3.4/32 via 192.168.0.1
 
 ### Windows
 
-To create a tun device on Windows, you need [Tap-windows](https://openvpn.net/index.php/download/community-downloads.html), refer [here](https://code.google.com/archive/p/badvpn/wikis/tun2socks.wiki) for more information.
+To create a TUN device on Windows, you need [Tap-windows](https://openvpn.net/index.php/download/community-downloads.html), refer [here](https://code.google.com/archive/p/badvpn/wikis/tun2socks.wiki) for more information.
 
-Add our tun interface as the default gateway:
+Add our TUN interface as the default gateway:
 
 ```sh
 route add 0.0.0.0 mask 0.0.0.0 240.0.0.2 metric 6
 ```
 
-Add a route for your proxy server to bypass the tun interface:
+Add a route for your proxy server to bypass the TUN interface:
 
 ```sh
 route add 1.2.3.4 192.168.0.1 metric 5
