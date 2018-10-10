@@ -68,22 +68,23 @@ func (h *tcpHandler) getConn(conn tun2socks.Connection) (net.Conn, bool) {
 	return nil, false
 }
 
-func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
+func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	dialer, err := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort), nil, nil)
 	if err != nil {
 		log.Printf("failed to create SOCKS5 dialer: %v", err)
-		return
+		return err
 	}
 	c, err := dialer.Dial(target.Network(), target.String())
 	if err != nil {
 		log.Printf("failed to dial SOCKS5 server: %v", err)
-		return
+		return err
 	}
 	h.Lock()
 	h.conns[conn] = c
 	h.Unlock()
 	c.SetDeadline(time.Time{})
 	go h.fetchInput(conn, c)
+	return nil
 }
 
 func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {

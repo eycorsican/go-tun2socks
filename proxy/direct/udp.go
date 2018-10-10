@@ -49,12 +49,12 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, pc *net.UDPConn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
+func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	bindAddr := &net.UDPAddr{IP: net.IP{0, 0, 0, 0}, Port: 0}
 	pc, err := net.ListenUDP("udp", bindAddr)
 	if err != nil {
 		log.Printf("failed to bind udp address")
-		return
+		return err
 	}
 	tgtAddr, _ := net.ResolveUDPAddr(target.Network(), target.String())
 	h.Lock()

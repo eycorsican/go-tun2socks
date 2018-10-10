@@ -7,7 +7,7 @@ import (
 // ConnectionHandler handles connections comming from TUN.
 type ConnectionHandler interface {
 	// Connect connects the proxy server.
-	Connect(conn Connection, target net.Addr)
+	Connect(conn Connection, target net.Addr) error
 
 	// DidReceive will be called when data arrives from TUN.
 	DidReceive(conn Connection, data []byte) error

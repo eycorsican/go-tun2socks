@@ -69,11 +69,11 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
+func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	c, err := net.Dial("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort))
 	if err != nil {
 		log.Printf("failed to dial TCP while creating SOCKS5 UDP associate connection")
-		return
+		return err
 	}
 
 	// send VER, NMETHODS, METHODS
@@ -83,7 +83,7 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
 	// read VER METHOD
 	if _, err := io.ReadFull(c, buf[:2]); err != nil {
 		log.Printf("failed to read SOCKS5 version message reply", err)
-		return
+		return err
 	}
 
 	h.targetAddr = ParseAddr(target.String())
@@ -93,19 +93,19 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
 	// read VER REP RSV ATYP BND.ADDR BND.PORT
 	if _, err := io.ReadFull(c, buf[:3]); err != nil {
 		log.Printf("failed to read SOCKS5 request reply", err)
-		return
+		return err
 	}
 
 	rep := buf[1]
 	if rep != 0 {
 		log.Printf("SOCKS5 server reply: %d, not succeeded", rep)
-		return
+		return err
 	}
 
 	uAddr, err := readAddr(c, buf)
 	if err != nil {
 		log.Printf("failed to read UDP assiciate server address")
-		return
+		return err
 	}
 
 	go h.handleTCP(conn, c)
@@ -113,7 +113,7 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
 	pc, err := net.Dial("udp", uAddr.String())
 	if err != nil {
 		log.Printf("failed to dial UDP associate server")
-		return
+		return err
 	}
 	log.Printf("dialed UDP connection: %v -> %v", pc.LocalAddr(), pc.RemoteAddr())
 
@@ -122,6 +122,7 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
 	h.udpConns[conn] = pc
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
+	return nil
 }
 
 func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {

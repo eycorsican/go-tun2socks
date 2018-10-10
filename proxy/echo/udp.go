@@ -14,7 +14,8 @@ func NewUDPHandler() tun2socks.ConnectionHandler {
 	return &udpHandler{}
 }
 
-func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
+func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
+	return nil
 }
 
 func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {

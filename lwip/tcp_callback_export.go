@@ -23,11 +23,13 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 	if err != C.ERR_OK {
 		return err
 	}
-	conn := NewTCPConnection(newpcb, tcpConnectionHandler)
-	if conn == nil {
-		log.Printf("failed to create TCP connection")
+
+	conn, err2 := NewTCPConnection(newpcb, tcpConnectionHandler)
+	if err2 != nil {
+		log.Printf("failed to create TCP connection: %v", err2)
 		return C.ERR_OK
 	}
+
 	log.Printf("created new TCP connection %v <-> %v", conn.LocalAddr().String(), conn.RemoteAddr().String())
 	listener.Accept(conn)
 	return C.ERR_OK

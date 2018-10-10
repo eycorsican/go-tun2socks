@@ -46,15 +46,14 @@ func checkTCPConns() {
 	})
 }
 
-func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler) tun2socks.Connection {
+func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler) (tun2socks.Connection, error) {
 	// prepare key
 	connKeyArg := NewConnKeyArg()
 	connKey := rand.Uint32()
 	SetConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
 
 	if tcpConnectionHandler == nil {
-		log.Printf("no TCP connection handler found")
-		return nil
+		return nil, errors.New("no registered TCP connection handlers found")
 	}
 
 	conn := &tcpConn{
@@ -82,9 +81,11 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 	SetTCPSentCallback(pcb)
 	SetTCPErrCallback(pcb)
 
-	// FIXME: return and handle connect error
-	handler.Connect(conn, conn.RemoteAddr())
-	return conn
+	err := handler.Connect(conn, conn.RemoteAddr())
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
 }
 
 func (conn *tcpConn) RemoteAddr() net.Addr {

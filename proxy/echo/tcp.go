@@ -14,7 +14,8 @@ func NewTCPHandler() tun2socks.ConnectionHandler {
 	return &tcpHandler{}
 }
 
-func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
+func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
+	return nil
 }
 
 func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {

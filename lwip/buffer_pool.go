@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-const BufSize = 1500
+const BufSize = 4096
 
 var pool = sync.Pool{
 	New: func() interface{} {

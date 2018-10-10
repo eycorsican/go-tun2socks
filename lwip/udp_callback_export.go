@@ -31,18 +31,18 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	conn, found := udpConns.Load(connId)
 	if !found {
 		if udpConnectionHandler == nil {
-			log.Printf("no UDP connection handler found")
+			log.Printf("no registered UDP connection handlers found")
 			return
 		}
-		conn = NewUDPConnection(pcb,
+		var err error
+		conn, err = NewUDPConnection(pcb,
 			udpConnectionHandler,
 			*addr,
 			*destAddr,
 			port,
-			destPort,
-		)
-		if conn == nil {
-			log.Printf("failed to create UDP relay connection")
+			destPort)
+		if err != nil {
+			log.Printf("failed to create UDP relay connection: %v", err)
 			return
 		}
 		udpConns.Store(connId, conn)

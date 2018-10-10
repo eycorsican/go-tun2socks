@@ -22,7 +22,7 @@ type udpConn struct {
 	localPort  C.u16_t
 }
 
-func NewUDPConnection(pcb *C.struct_udp_pcb, handler tun2socks.ConnectionHandler, localAddr, remoteAddr C.ip_addr_t, localPort, remotePort C.u16_t) tun2socks.Connection {
+func NewUDPConnection(pcb *C.struct_udp_pcb, handler tun2socks.ConnectionHandler, localAddr, remoteAddr C.ip_addr_t, localPort, remotePort C.u16_t) (tun2socks.Connection, error) {
 	conn := &udpConn{
 		handler:    handler,
 		pcb:        pcb,
@@ -31,9 +31,11 @@ func NewUDPConnection(pcb *C.struct_udp_pcb, handler tun2socks.ConnectionHandler
 		localPort:  localPort,
 		remotePort: remotePort,
 	}
-	// FIXME: return and handle connect error
-	handler.Connect(conn, conn.RemoteAddr())
-	return conn
+	err := handler.Connect(conn, conn.RemoteAddr())
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
 }
 
 func (conn *udpConn) RemoteAddr() net.Addr {
