@@ -64,7 +64,7 @@ func main() {
 
 	// Read packets from tun device and input to lwip stack.
 	go func() {
-		buf := lwip.NewBytes()
+		buf := lwip.NewBytes(lwip.BufSize)
 		defer lwip.FreeBytes(buf)
 		for {
 			n, err := dev.Read(buf[:])

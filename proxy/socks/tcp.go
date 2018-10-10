@@ -32,7 +32,7 @@ func NewTCPHandler(proxyHost string, proxyPort uint16) tun2socks.ConnectionHandl
 }
 
 func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
-	buf := lwip.NewBytes()
+	buf := lwip.NewBytes(lwip.BufSize)
 
 	defer func() {
 		h.Close(conn)

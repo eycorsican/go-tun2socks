@@ -62,7 +62,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		return err
 	}
 
-	buf := NewBytes()
+	buf := NewBytes(int(p.tot_len))
 	C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
 	handlerErr := conn.(tun2socks.Connection).Receive(buf[:int(p.tot_len)])
 	FreeBytes(buf)

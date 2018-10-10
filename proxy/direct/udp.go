@@ -26,7 +26,7 @@ func NewUDPHandler() tun2socks.ConnectionHandler {
 }
 
 func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, pc *net.UDPConn) {
-	buf := lwip.NewBytes()
+	buf := lwip.NewBytes(lwip.BufSize)
 
 	defer func() {
 		h.Close(conn)

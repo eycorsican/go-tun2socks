@@ -12,7 +12,7 @@ import (
 
 //export Output
 func Output(p *C.struct_pbuf) C.err_t {
-	buf := NewBytes()
+	buf := NewBytes(int(p.tot_len))
 	C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
 	_, err := OutputFn(buf[:int(p.tot_len)])
 	FreeBytes(buf)

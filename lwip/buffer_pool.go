@@ -4,16 +4,24 @@ import (
 	"sync"
 )
 
+const BufSize = 1500
+
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 1500)
+		return make([]byte, BufSize)
 	},
 }
 
-func NewBytes() []byte {
-	return pool.Get().([]byte)
+func NewBytes(size int) []byte {
+	if size <= BufSize {
+		return pool.Get().([]byte)
+	} else {
+		return make([]byte, size)
+	}
 }
 
 func FreeBytes(b []byte) {
-	pool.Put(b)
+	if len(b) <= BufSize {
+		pool.Put(b)
+	}
 }
