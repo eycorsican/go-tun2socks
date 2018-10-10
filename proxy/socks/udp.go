@@ -52,7 +52,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
 	}()
 
 	for {
-		input.SetDeadline(time.Now().Add(8 * time.Second))
+		input.SetDeadline(time.Time{})
 		n, err := input.Read(buf)
 		if err != nil {
 			log.Printf("failed to read UDP data from SOCKS5 server: %v", err)
@@ -115,6 +115,7 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) {
 		log.Printf("failed to dial UDP associate server")
 		return
 	}
+	log.Printf("dialed UDP connection: %v -> %v", pc.LocalAddr(), pc.RemoteAddr())
 
 	h.Lock()
 	h.tcpConns[conn] = c
