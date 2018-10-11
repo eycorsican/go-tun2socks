@@ -23,7 +23,7 @@ func main() {
 	tunAddr := flag.String("tunAddr", "240.0.0.2", "TUN interface address.")
 	tunGw := flag.String("tunGw", "240.0.0.1", "TUN interface gateway.")
 	tunMask := flag.String("tunMask", "255.255.255.0", "TUN interface netmask.")
-	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface.")
+	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface. (Only take effect on Windows)")
 	proxyType := flag.String("proxyType", "socks", "Proxy handler type: socks, shadowsocks")
 	proxyServer := flag.String("proxyServer", "1.1.1.1:1087", "Proxy server address.")
 	proxyCipher := flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
