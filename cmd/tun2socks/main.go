@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
@@ -16,6 +17,10 @@ import (
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
 	"github.com/eycorsican/go-tun2socks/tun"
+)
+
+const (
+	PROTOCOL_ICMP = 0x1
 )
 
 func main() {
@@ -28,6 +33,7 @@ func main() {
 	proxyServer := flag.String("proxyServer", "1.1.1.1:1087", "Proxy server address.")
 	proxyCipher := flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
+	delayICMP := flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
 
 	flag.Parse()
 
@@ -85,9 +91,21 @@ func main() {
 			if err != nil {
 				log.Fatal("failed to read from tun device: %v", err)
 			}
-			err = lwip.Input(buf[:n])
-			if err != nil {
-				log.Fatal("failed to input data to the stack: %v", err)
+			if uint8(buf[9]) == PROTOCOL_ICMP {
+				payload := make([]byte, n)
+				copy(payload, buf[:n])
+				go func(data []byte) {
+					time.Sleep(time.Duration(*delayICMP) * time.Millisecond)
+					err = lwip.Input(data)
+					if err != nil {
+						log.Fatal("failed to input data to the stack: %v", err)
+					}
+				}(payload)
+			} else {
+				err = lwip.Input(buf[:n])
+				if err != nil {
+					log.Fatal("failed to input data to the stack: %v", err)
+				}
 			}
 		}
 	}()
