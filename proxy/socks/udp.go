@@ -16,19 +16,20 @@ import (
 type udpHandler struct {
 	sync.Mutex
 
-	proxyHost  string
-	proxyPort  uint16
-	udpConns   map[tun2socks.Connection]net.Conn
-	tcpConns   map[tun2socks.Connection]net.Conn
-	targetAddr Addr
+	proxyHost   string
+	proxyPort   uint16
+	udpConns    map[tun2socks.Connection]net.Conn
+	tcpConns    map[tun2socks.Connection]net.Conn
+	targetAddrs map[tun2socks.Connection]Addr
 }
 
 func NewUDPHandler(proxyHost string, proxyPort uint16) tun2socks.ConnectionHandler {
 	return &udpHandler{
-		proxyHost: proxyHost,
-		proxyPort: proxyPort,
-		udpConns:  make(map[tun2socks.Connection]net.Conn, 8),
-		tcpConns:  make(map[tun2socks.Connection]net.Conn, 8),
+		proxyHost:   proxyHost,
+		proxyPort:   proxyPort,
+		udpConns:    make(map[tun2socks.Connection]net.Conn, 8),
+		tcpConns:    make(map[tun2socks.Connection]net.Conn, 8),
+		targetAddrs: make(map[tun2socks.Connection]Addr, 8),
 	}
 }
 
@@ -86,9 +87,9 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 		return err
 	}
 
-	h.targetAddr = ParseAddr(target.String())
+	targetAddr := ParseAddr(target.String())
 	// write VER CMD RSV ATYP DST.ADDR DST.PORT
-	c.Write(append([]byte{5, socks5UDPAssociate, 0}, h.targetAddr...))
+	c.Write(append([]byte{5, socks5UDPAssociate, 0}, targetAddr...))
 
 	// read VER REP RSV ATYP BND.ADDR BND.PORT
 	if _, err := io.ReadFull(c, buf[:3]); err != nil {
@@ -120,14 +121,20 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	h.Lock()
 	h.tcpConns[conn] = c
 	h.udpConns[conn] = pc
+	h.targetAddrs[conn] = targetAddr
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
 	return nil
 }
 
 func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
-	if pc, ok := h.udpConns[conn]; ok {
-		buf := append([]byte{0, 0, 0}, h.targetAddr...)
+	h.Lock()
+	pc, ok1 := h.udpConns[conn]
+	targetAddr, ok2 := h.targetAddrs[conn]
+	h.Unlock()
+
+	if ok1 && ok2 {
+		buf := append([]byte{0, 0, 0}, targetAddr...)
 		buf = append(buf, data[:]...)
 		_, err := pc.Write(buf)
 		if err != nil {
