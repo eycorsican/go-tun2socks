@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 
+	sscore "github.com/shadowsocks/go-shadowsocks2/core"
+
 	"github.com/eycorsican/go-tun2socks/lwip"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
@@ -22,9 +24,9 @@ func main() {
 	tunGw := flag.String("tunGw", "240.0.0.1", "TUN interface gateway.")
 	tunMask := flag.String("tunMask", "255.255.255.0", "TUN interface netmask.")
 	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface.")
-	proxyType := flag.String("proxyType", "socks", "Proxy handler type.")
+	proxyType := flag.String("proxyType", "socks", "Proxy handler type: socks, shadowsocks")
 	proxyServer := flag.String("proxyServer", "1.1.1.1:1087", "Proxy server address.")
-	proxyCipher := flag.String("proxyCipher", "", "Cipher used for Shadowsocks proxy")
+	proxyCipher := flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 
 	flag.Parse()
