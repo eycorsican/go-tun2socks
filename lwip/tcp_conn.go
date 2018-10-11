@@ -113,10 +113,11 @@ func (conn *tcpConn) Receive(data []byte) error {
 
 func (conn *tcpConn) Write(data []byte) error {
 	lwipMutex.Lock()
+	defer lwipMutex.Unlock()
+
 	for {
 
 		if conn.pcb == nil {
-			lwipMutex.Unlock()
 			return errors.New("nil tcp pcb")
 		}
 
@@ -129,11 +130,9 @@ func (conn *tcpConn) Write(data []byte) error {
 				continue
 			}
 			conn.Close()
-			lwipMutex.Unlock()
 			return errors.New("failed to enqueue data: ERR_OTHER")
 		} else {
 			if conn.pcb == nil {
-				lwipMutex.Unlock()
 				return errors.New("nil tcp pcb")
 			}
 			err = C.tcp_output(conn.pcb)
@@ -141,7 +140,6 @@ func (conn *tcpConn) Write(data []byte) error {
 				log.Printf("failed to output data: %v", err)
 			}
 		}
-		lwipMutex.Unlock()
 		return nil
 	}
 }

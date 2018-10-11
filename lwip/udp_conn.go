@@ -61,9 +61,9 @@ func (conn *udpConn) Write(data []byte) error {
 
 	buf := C.pbuf_alloc(C.PBUF_TRANSPORT, C.u16_t(len(data)), C.PBUF_RAM)
 	C.pbuf_take(buf, unsafe.Pointer(&data[0]), C.u16_t(len(data)))
-	lwipMutex.Lock()
+	// lwipMutex.Lock()
 	C.udp_sendto(conn.pcb, buf, &conn.localAddr, conn.localPort, &conn.remoteAddr, conn.remotePort)
-	lwipMutex.Unlock()
+	// lwipMutex.Unlock()
 	C.pbuf_free(buf)
 	return nil
 }
