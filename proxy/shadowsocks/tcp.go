@@ -160,6 +160,10 @@ func (h *tcpHandler) Close(conn tun2socks.Connection) {
 		delete(h.conns, conn)
 		h.Unlock()
 	}
+
+	h.Lock()
+	defer h.Unlock()
+
 	delete(h.tgtAddrs, conn)
 	delete(h.tgtSent, conn)
 }
