@@ -31,7 +31,7 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 	}
 
 	log.Printf("created new TCP connection %v <-> %v", conn.LocalAddr().String(), conn.RemoteAddr().String())
-	listener.Accept(conn)
+
 	return C.ERR_OK
 }
 

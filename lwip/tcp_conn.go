@@ -7,6 +7,7 @@ package lwip
 import "C"
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -101,7 +102,7 @@ func (conn *tcpConn) Receive(data []byte) error {
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		conn.Abort()
-		return errors.New("failed to handle received TCP data")
+		return errors.New(fmt.Sprintf("failed to handle received TCP data: %v", err))
 	}
 
 	// We should call tcp_recved() after data have been processed, by default we assume

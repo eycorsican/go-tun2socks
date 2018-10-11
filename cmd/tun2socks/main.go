@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
 	"github.com/eycorsican/go-tun2socks/tun"
 )
@@ -22,6 +24,8 @@ func main() {
 	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface.")
 	proxyType := flag.String("proxyType", "socks", "Proxy handler type.")
 	proxyServer := flag.String("proxyServer", "1.1.1.1:1087", "Proxy server address.")
+	proxyCipher := flag.String("proxyCipher", "", "Cipher used for Shadowsocks proxy")
+	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 
 	flag.Parse()
 
@@ -46,11 +50,18 @@ func main() {
 	// Setup TCP/IP stack.
 	lwip.Setup()
 
+	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
 	case "socks":
-		// Register TCP and UDP handlers to handle accepted connections.
 		lwip.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyAddr, proxyPort))
 		lwip.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyAddr, proxyPort))
+		break
+	case "shadowsocks":
+		if *proxyCipher == "" || *proxyPassword == "" {
+			log.Fatal("invalid cipher or password")
+		}
+		lwip.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
+		lwip.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
 		break
 	default:
 		log.Fatal("unsupported proxy type")
