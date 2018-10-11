@@ -29,7 +29,7 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 ## Features
 
 - Support both TCP and UDP (only IPv4 for now)
-- SOCKS5 proxing (both TCP and UDP)
+- Supported proxy protocols: SOCKS5, Shadowsocks
 - UDP direct relaying (no proxy)
 - ICMP local echoing
 
