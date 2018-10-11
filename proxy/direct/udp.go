@@ -62,6 +62,7 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	h.udpConns[conn] = pc
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
+	return nil
 }
 
 func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
