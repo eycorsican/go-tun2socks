@@ -70,7 +70,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	FreeBytes(buf)
 
 	if handlerErr != nil {
-		log.Printf("failed to handle TCP received data: %v", handlerErr)
+		log.Printf("handle recevived data failed: %v", handlerErr)
 
 		// We assume the connection must have been aborted when handlerErr is not
 		// nil, ortherwise we are risking memory leak here.

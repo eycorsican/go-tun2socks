@@ -39,6 +39,7 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 	buf := lwip.NewBytes(lwip.BufSize)
 
 	defer func() {
+		conn.Close() // also close tun2socks connection here
 		h.Close(conn)
 		lwip.FreeBytes(buf)
 	}()
@@ -47,16 +48,14 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 		n, err := input.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("failed to read from Shadowsocks server: %v", err)
-				h.Close(conn)
+				log.Printf("read remote failed: %v", err)
 				return
 			}
 			break
 		}
 		err = conn.Write(buf[:n])
 		if err != nil {
-			log.Printf("failed to send data to TUN: %v", err)
-			h.Close(conn)
+			log.Printf("write local failed: %v", err)
 			return
 		}
 	}
@@ -86,7 +85,7 @@ func (h *tcpHandler) sendTargetAddress(conn tun2socks.Connection) error {
 		tgt := sssocks.ParseAddr(tgtAddr.String())
 		_, err := rc.Write(tgt)
 		if err != nil {
-			return errors.New(fmt.Sprintf("sending target address failed: %v", err))
+			return errors.New(fmt.Sprintf("send target address failed: %v", err))
 		}
 		h.tgtSent[conn] = true
 		go h.fetchInput(conn, rc)
@@ -99,7 +98,7 @@ func (h *tcpHandler) sendTargetAddress(conn tun2socks.Connection) error {
 func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	rc, err := net.Dial("tcp", h.server)
 	if err != nil {
-		return errors.New(fmt.Sprintf("dialing remote server failed: %v", err))
+		return errors.New(fmt.Sprintf("dial remote server failed: %v", err))
 	}
 	rc = h.cipher.StreamConn(rc)
 
@@ -119,19 +118,22 @@ func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 
 	if ok1 {
 		if !ok2 || !sent {
-			h.sendTargetAddress(conn)
+			err := h.sendTargetAddress(conn)
+			if err != nil {
+				h.Close(conn)
+				return err
+			}
 		}
-
 		_, err := rc.Write(data)
 		if err != nil {
-			log.Printf("failed to write data to Shadowsocks server: %v", err)
 			h.Close(conn)
-			return errors.New(fmt.Sprintf("failed to write data: %v", err))
+			return errors.New(fmt.Sprintf("write remote failed: %v", err))
 		}
-		return nil
 	} else {
+		h.Close(conn)
 		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr().String(), conn.RemoteAddr().String()))
 	}
+	return nil
 }
 
 func (h *tcpHandler) DidSend(conn tun2socks.Connection, len uint16) {

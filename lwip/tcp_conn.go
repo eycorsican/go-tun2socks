@@ -102,7 +102,11 @@ func (conn *tcpConn) Receive(data []byte) error {
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		conn.Abort()
-		return errors.New(fmt.Sprintf("failed to handle received TCP data: %v", err))
+		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
+	}
+
+	if conn.pcb == nil {
+		return errors.New("pcb has been released")
 	}
 
 	// We should call tcp_recved() after data have been processed, by default we assume
@@ -113,10 +117,11 @@ func (conn *tcpConn) Receive(data []byte) error {
 
 func (conn *tcpConn) Write(data []byte) error {
 	lwipMutex.Lock()
-	defer lwipMutex.Unlock()
+	defer func() {
+		lwipMutex.Unlock()
+	}()
 
 	for {
-
 		if conn.pcb == nil {
 			return errors.New("nil tcp pcb")
 		}
@@ -129,12 +134,10 @@ func (conn *tcpConn) Write(data []byte) error {
 				lwipMutex.Lock()
 				continue
 			}
+			conn.handler.DidClose(conn)
 			conn.Close()
 			return errors.New("failed to enqueue data: ERR_OTHER")
 		} else {
-			if conn.pcb == nil {
-				return errors.New("nil tcp pcb")
-			}
 			err = C.tcp_output(conn.pcb)
 			if err != C.ERR_OK {
 				log.Printf("failed to output data: %v", err)
@@ -165,20 +168,16 @@ func (conn *tcpConn) Close() error {
 	}
 
 	conn.Release()
-	conn.handler.DidClose(conn)
 	return nil
 }
 
 func (conn *tcpConn) Abort() {
 	if conn.pcb == nil {
-		log.Printf("nil pcb when abort")
-		conn.handler.DidClose(conn)
 		return
 	}
 
 	C.tcp_abort(conn.pcb)
 	conn.Release()
-	// conn.handler.DidClose(conn)
 }
 
 func (conn *tcpConn) Err(err error) {
