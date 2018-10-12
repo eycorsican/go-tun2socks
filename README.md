@@ -87,7 +87,7 @@ route delete default
 Add our TUN interface as the default gateway:
 
 ```sh
-route add default 240.0.0.2
+route add default 240.0.0.1
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
@@ -115,7 +115,7 @@ ip route del default
 Add our TUN interface as the default gateway:
 
 ```sh
-ip route add default via 240.0.0.2
+ip route add default via 240.0.0.1
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
@@ -131,7 +131,7 @@ To create a TUN device on Windows, you need [Tap-windows](https://openvpn.net/in
 Add our TUN interface as the default gateway:
 
 ```sh
-route add 0.0.0.0 mask 0.0.0.0 240.0.0.2 metric 6
+route add 0.0.0.0 mask 0.0.0.0 240.0.0.1 metric 6
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
