@@ -22,7 +22,7 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	// Dispatch to another goroutine, otherwise will result in deadlock.
 	payload := append([]byte(nil), data...)
 	go func(b []byte) {
-		err := conn.Write(b)
+		_, err := conn.Write(b)
 		if err != nil {
 			log.Printf("failed to echo back data: %v", err)
 		}

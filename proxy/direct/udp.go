@@ -41,7 +41,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, pc *net.UDPConn) {
 			return
 		}
 
-		err = conn.Write(buf[:n])
+		_, err = conn.Write(buf[:n])
 		if err != nil {
 			log.Printf("failed to write UDP data to TUN")
 			return
