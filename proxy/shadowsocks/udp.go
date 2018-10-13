@@ -21,6 +21,7 @@ type udpHandler struct {
 	remoteAddr  net.Addr
 	conns       map[tun2socks.Connection]net.PacketConn
 	targetAddrs map[tun2socks.Connection]sssocks.Addr
+	dnsCache    *dnsCache
 }
 
 func NewUDPHandler(server, cipher, password string) tun2socks.ConnectionHandler {
@@ -39,6 +40,7 @@ func NewUDPHandler(server, cipher, password string) tun2socks.ConnectionHandler 
 		remoteAddr:  remoteAddr,
 		conns:       make(map[tun2socks.Connection]net.PacketConn, 16),
 		targetAddrs: make(map[tun2socks.Connection]sssocks.Addr, 16),
+		dnsCache:    &dnsCache{storage: make(map[string]*dnsCacheEntry)},
 	}
 }
 
@@ -64,6 +66,19 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 			log.Printf("failed to write UDP data to TUN")
 			return
 		}
+
+		h.Lock()
+		targetAddr, ok2 := h.targetAddrs[conn]
+		h.Unlock()
+		if ok2 {
+			_, port, err := net.SplitHostPort(targetAddr.String())
+			if err != nil {
+				log.Fatal("impossible error")
+			}
+			if port == "53" {
+				h.dnsCache.store(buf[int(len(addr)):n])
+			}
+		}
 	}
 }
 
@@ -83,8 +98,30 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 }
 
 func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
+	h.Lock()
 	pc, ok1 := h.conns[conn]
 	targetAddr, ok2 := h.targetAddrs[conn]
+	h.Unlock()
+
+	if ok2 {
+		_, port, err := net.SplitHostPort(targetAddr.String())
+		if err != nil {
+			log.Fatal("impossible error")
+		}
+		if port == "53" {
+			if answer := h.dnsCache.query(data); answer != nil {
+				var buf [1024]byte
+				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {
+					err = conn.Write(dnsAnswer)
+					if err != nil {
+						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
+					}
+					return nil
+				}
+			}
+		}
+	}
+
 	if ok1 && ok2 {
 		buf := append([]byte{0, 0, 0}, targetAddr...)
 		buf = append(buf, data[:]...)
