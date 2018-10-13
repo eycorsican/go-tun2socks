@@ -91,7 +91,7 @@ func main() {
 			if err != nil {
 				log.Fatal("failed to read from tun device: %v", err)
 			}
-			if uint8(buf[9]) == PROTOCOL_ICMP {
+			if uint8(buf[9]) == PROTOCOL_ICMP && *delayICMP > 0 {
 				payload := make([]byte, n)
 				copy(payload, buf[:n])
 				go func(data []byte) {
