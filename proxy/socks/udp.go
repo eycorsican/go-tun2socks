@@ -11,6 +11,7 @@ import (
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
 	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
 type udpHandler struct {
@@ -21,15 +22,19 @@ type udpHandler struct {
 	udpConns    map[tun2socks.Connection]net.Conn
 	tcpConns    map[tun2socks.Connection]net.Conn
 	targetAddrs map[tun2socks.Connection]Addr
+	dnsCache    *proxy.DNSCache
+	timeout     time.Duration
 }
 
-func NewUDPHandler(proxyHost string, proxyPort uint16) tun2socks.ConnectionHandler {
+func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration) tun2socks.ConnectionHandler {
 	return &udpHandler{
 		proxyHost:   proxyHost,
 		proxyPort:   proxyPort,
 		udpConns:    make(map[tun2socks.Connection]net.Conn, 8),
 		tcpConns:    make(map[tun2socks.Connection]net.Conn, 8),
 		targetAddrs: make(map[tun2socks.Connection]Addr, 8),
+		dnsCache:    proxy.NewDNSCache(),
+		timeout:     timeout,
 	}
 }
 
@@ -53,7 +58,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
 	}()
 
 	for {
-		input.SetDeadline(time.Time{})
+		input.SetDeadline(time.Now().Add(h.timeout))
 		n, err := input.Read(buf)
 		if err != nil {
 			log.Printf("read remote failed: %v", err)
@@ -61,10 +66,23 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
 		}
 
 		addr := SplitAddr(buf[3:])
-		err = conn.Write(buf[int(3+len(addr)):n])
+		_, err = conn.Write(buf[int(3+len(addr)):n])
 		if err != nil {
 			log.Printf("write local failed: %v", err)
 			return
+		}
+
+		h.Lock()
+		targetAddr, ok2 := h.targetAddrs[conn]
+		h.Unlock()
+		if ok2 {
+			_, port, err := net.SplitHostPort(targetAddr.String())
+			if err != nil {
+				log.Fatal("impossible error")
+			}
+			if port == "53" {
+				h.dnsCache.Store(buf[int(3+len(addr)):n])
+			}
 		}
 	}
 }
@@ -124,6 +142,25 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	pc, ok1 := h.udpConns[conn]
 	targetAddr, ok2 := h.targetAddrs[conn]
 	h.Unlock()
+
+	if ok2 {
+		_, port, err := net.SplitHostPort(targetAddr.String())
+		if err != nil {
+			log.Fatal("impossible error")
+		}
+		if port == "53" {
+			if answer := h.dnsCache.Query(data); answer != nil {
+				var buf [1024]byte
+				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {
+					_, err = conn.Write(dnsAnswer)
+					if err != nil {
+						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
+					}
+					return nil
+				}
+			}
+		}
+	}
 
 	if ok1 && ok2 {
 		buf := append([]byte{0, 0, 0}, targetAddr...)

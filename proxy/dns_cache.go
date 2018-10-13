@@ -1,6 +1,6 @@
 // This file is copied from https://github.com/yinghuocho/gotun2socks/blob/master/udp.go
 
-package shadowsocks
+package proxy
 
 import (
 	"log"
@@ -15,10 +15,14 @@ type dnsCacheEntry struct {
 	exp time.Time
 }
 
-type dnsCache struct {
+type DNSCache struct {
 	servers []string
 	mutex   sync.Mutex
 	storage map[string]*dnsCacheEntry
+}
+
+func NewDNSCache() *DNSCache {
+	return &DNSCache{storage: make(map[string]*dnsCacheEntry)}
 }
 
 func packUint16(i uint16) []byte { return []byte{byte(i >> 8), byte(i)} }
@@ -27,7 +31,7 @@ func cacheKey(q dns.Question) string {
 	return string(append([]byte(q.Name), packUint16(q.Qtype)...))
 }
 
-func (c *dnsCache) query(payload []byte) *dns.Msg {
+func (c *DNSCache) Query(payload []byte) *dns.Msg {
 	request := new(dns.Msg)
 	e := request.Unpack(payload)
 	if e != nil {
@@ -53,7 +57,7 @@ func (c *dnsCache) query(payload []byte) *dns.Msg {
 	return entry.msg
 }
 
-func (c *dnsCache) store(payload []byte) {
+func (c *DNSCache) Store(payload []byte) {
 	resp := new(dns.Msg)
 	e := resp.Unpack(payload)
 	if e != nil {

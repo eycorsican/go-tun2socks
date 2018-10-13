@@ -164,17 +164,17 @@ func (conn *tcpConn) writeLocal() error {
 	return nil
 }
 
-func (conn *tcpConn) Write(data []byte) error {
+func (conn *tcpConn) Write(data []byte) (int, error) {
 	conn.localLock.Lock()
-	_, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
+	n, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
 	conn.localLock.Unlock()
 	if err != nil {
-		return errors.New("write local buffer failed")
+		return int(n), errors.New("write local buffer failed")
 	}
 
 	go conn.writeLocal()
 
-	return nil
+	return int(n), nil
 }
 
 func (conn *tcpConn) Sent(len uint16) {

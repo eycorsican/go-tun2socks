@@ -55,16 +55,16 @@ func (conn *udpConn) Receive(data []byte) error {
 	return nil
 }
 
-func (conn *udpConn) Write(data []byte) error {
+func (conn *udpConn) Write(data []byte) (int, error) {
 	if conn.pcb == nil {
-		return errors.New("nil udp pcb")
+		return 0, errors.New("nil udp pcb")
 	}
 
 	buf := C.pbuf_alloc(C.PBUF_TRANSPORT, C.u16_t(len(data)), C.PBUF_RAM)
 	C.pbuf_take(buf, unsafe.Pointer(&data[0]), C.u16_t(len(data)))
 	C.udp_sendto(conn.pcb, buf, &conn.localAddr, conn.localPort, &conn.remoteAddr, conn.remotePort)
 	C.pbuf_free(buf)
-	return nil
+	return len(data), nil
 }
 
 func (conn *udpConn) Sent(len uint16) {

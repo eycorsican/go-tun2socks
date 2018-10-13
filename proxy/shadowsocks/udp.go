@@ -13,6 +13,7 @@ import (
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
 	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
 type udpHandler struct {
@@ -22,10 +23,11 @@ type udpHandler struct {
 	remoteAddr  net.Addr
 	conns       map[tun2socks.Connection]net.PacketConn
 	targetAddrs map[tun2socks.Connection]sssocks.Addr
-	dnsCache    *dnsCache
+	dnsCache    *proxy.DNSCache
+	timeout     time.Duration
 }
 
-func NewUDPHandler(server, cipher, password string) tun2socks.ConnectionHandler {
+func NewUDPHandler(server, cipher, password string, timeout time.Duration) tun2socks.ConnectionHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
 		log.Fatal(err)
@@ -41,7 +43,8 @@ func NewUDPHandler(server, cipher, password string) tun2socks.ConnectionHandler 
 		remoteAddr:  remoteAddr,
 		conns:       make(map[tun2socks.Connection]net.PacketConn, 16),
 		targetAddrs: make(map[tun2socks.Connection]sssocks.Addr, 16),
-		dnsCache:    &dnsCache{storage: make(map[string]*dnsCacheEntry)},
+		dnsCache:    proxy.NewDNSCache(),
+		timeout:     timeout,
 	}
 }
 
@@ -54,7 +57,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 	}()
 
 	for {
-		input.SetDeadline(time.Now().Add(2 * time.Minute))
+		input.SetDeadline(time.Now().Add(h.timeout))
 		n, _, err := input.ReadFrom(buf)
 		if err != nil {
 			log.Printf("read remote failed: %v", err)
@@ -62,7 +65,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 		}
 
 		addr := sssocks.SplitAddr(buf[:])
-		err = conn.Write(buf[int(len(addr)):n])
+		_, err = conn.Write(buf[int(len(addr)):n])
 		if err != nil {
 			log.Printf("write local failed: %v", err)
 			return
@@ -77,7 +80,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 				log.Fatal("impossible error")
 			}
 			if port == "53" {
-				h.dnsCache.store(buf[int(len(addr)):n])
+				h.dnsCache.Store(buf[int(len(addr)):n])
 			}
 		}
 	}
@@ -110,10 +113,10 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 			log.Fatal("impossible error")
 		}
 		if port == "53" {
-			if answer := h.dnsCache.query(data); answer != nil {
+			if answer := h.dnsCache.Query(data); answer != nil {
 				var buf [1024]byte
 				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {
-					err = conn.Write(dnsAnswer)
+					_, err = conn.Write(dnsAnswer)
 					if err != nil {
 						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
 					}

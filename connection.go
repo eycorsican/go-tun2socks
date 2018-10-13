@@ -17,7 +17,7 @@ type Connection interface {
 	Receive(data []byte) error
 
 	// Write writes data to TUN.
-	Write(data []byte) error
+	Write(data []byte) (int, error)
 
 	// Sent will be called when sent data has been acknowledged by clients (TCP only).
 	Sent(len uint16)

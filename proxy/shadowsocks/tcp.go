@@ -13,7 +13,6 @@ import (
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
-	"github.com/eycorsican/go-tun2socks/lwip"
 )
 
 type tcpHandler struct {
@@ -27,42 +26,14 @@ type tcpHandler struct {
 }
 
 func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
-	buf := lwip.NewBytes(lwip.BufSize)
-
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
-		lwip.FreeBytes(buf)
 	}()
 
-	for {
-		n, err := input.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				log.Printf("read remote failed: %v", err)
-			}
-			return
-		}
-		err = conn.Write(buf[:n])
-		if err != nil {
-			log.Printf("write local failed: %v", err)
-			return
-		}
-	}
-}
-
-func NewTCPHandler(server, cipher, password string) tun2socks.ConnectionHandler {
-	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
+	_, err := io.Copy(conn.(io.Writer), input)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	return &tcpHandler{
-		cipher:   ciph,
-		server:   server,
-		conns:    make(map[tun2socks.Connection]net.Conn, 16),
-		tgtAddrs: make(map[tun2socks.Connection]net.Addr, 16),
-		tgtSent:  make(map[tun2socks.Connection]bool, 16),
+		log.Printf("fetch input failed: %v", err)
 	}
 }
 
@@ -88,6 +59,21 @@ func (h *tcpHandler) sendTargetAddress(conn tun2socks.Connection) error {
 		return errors.New("target address not found")
 	}
 	return nil
+}
+
+func NewTCPHandler(server, cipher, password string) tun2socks.ConnectionHandler {
+	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &tcpHandler{
+		cipher:   ciph,
+		server:   server,
+		conns:    make(map[tun2socks.Connection]net.Conn, 16),
+		tgtAddrs: make(map[tun2socks.Connection]net.Addr, 16),
+		tgtSent:  make(map[tun2socks.Connection]bool, 16),
+	}
 }
 
 func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {

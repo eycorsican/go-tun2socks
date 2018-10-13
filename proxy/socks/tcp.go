@@ -12,7 +12,6 @@ import (
 	"golang.org/x/net/proxy"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
-	"github.com/eycorsican/go-tun2socks/lwip"
 )
 
 type tcpHandler struct {
@@ -32,29 +31,14 @@ func NewTCPHandler(proxyHost string, proxyPort uint16) tun2socks.ConnectionHandl
 }
 
 func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
-	buf := lwip.NewBytes(lwip.BufSize)
-
 	defer func() {
 		h.Close(conn)
-		lwip.FreeBytes(buf)
+		conn.Close() // also close tun2socks connection here
 	}()
 
-	for {
-		n, err := input.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				log.Printf("read remote failed: %v", err)
-				h.Close(conn)
-				return
-			}
-			break
-		}
-		err = conn.Write(buf[:n])
-		if err != nil {
-			log.Printf("write local failed: %v", err)
-			h.Close(conn)
-			return
-		}
+	_, err := io.Copy(conn.(io.Writer), input)
+	if err != nil {
+		log.Printf("fetch input failed: %v", err)
 	}
 }
 
