@@ -43,16 +43,15 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 		n, err := input.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("failed to read from SOCKS5 server: %v", err)
+				log.Printf("read remote failed: %v", err)
 				h.Close(conn)
 				return
 			}
 			break
 		}
-		// No copy, since we are using TCP_WRITE_FLAG_COPY in tcp_write()
 		err = conn.Write(buf[:n])
 		if err != nil {
-			log.Printf("failed to send data to TUN: %v", err)
+			log.Printf("write local failed: %v", err)
 			h.Close(conn)
 			return
 		}
@@ -71,12 +70,10 @@ func (h *tcpHandler) getConn(conn tun2socks.Connection) (net.Conn, bool) {
 func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	dialer, err := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort), nil, nil)
 	if err != nil {
-		log.Printf("failed to create SOCKS5 dialer: %v", err)
 		return err
 	}
 	c, err := dialer.Dial(target.Network(), target.String())
 	if err != nil {
-		log.Printf("failed to dial SOCKS5 server: %v", err)
 		return err
 	}
 	h.Lock()
@@ -91,13 +88,12 @@ func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	if c, found := h.getConn(conn); found {
 		_, err := c.Write(data)
 		if err != nil {
-			log.Printf("failed to write data to SOCKS5 server: %v", err)
 			h.Close(conn)
-			return errors.New("failed to write data")
+			return errors.New(fmt.Sprintf("write remote failed: %v", err))
 		}
 		return nil
 	} else {
-		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr().String(), conn.RemoteAddr().String()))
+		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 

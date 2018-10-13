@@ -19,21 +19,21 @@ type Connection interface {
 	// Write writes data to TUN.
 	Write(data []byte) error
 
-	// Sent will be called when sent data has been acknowledged by clients.
+	// Sent will be called when sent data has been acknowledged by clients (TCP only).
 	Sent(len uint16)
 
-	// Close closes the connection.
+	// Close closes the connection (TCP only).
 	Close() error
 
-	// Abort aborts the connection to client by sending a RST segment.
+	// Abort aborts the connection to client by sending a RST segment (TCP only).
 	Abort()
 
-	// Err will be called when a fatal error has occurred on the connection.
+	// Err will be called when a fatal error has occurred on the connection (TCP only).
 	Err(err error)
 
-	// Reset resets the connection.
-	Reset()
-
-	// LocalDidClose will be called when local client has close the connection.
+	// LocalDidClose will be called when local client has close the connection (TCP only).
 	LocalDidClose()
+
+	// Poll will be periodically called by timers (TCP only).
+	Poll()
 }

@@ -2,6 +2,7 @@ package shadowsocks
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -53,17 +54,17 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 	}()
 
 	for {
-		input.SetDeadline(time.Time{})
+		input.SetDeadline(time.Now().Add(2 * time.Minute))
 		n, _, err := input.ReadFrom(buf)
 		if err != nil {
-			log.Printf("failed to read UDP data from Shadowsocks server: %v", err)
+			log.Printf("read remote failed: %v", err)
 			return
 		}
 
 		addr := sssocks.SplitAddr(buf[:])
 		err = conn.Write(buf[int(len(addr)):n])
 		if err != nil {
-			log.Printf("failed to write UDP data to TUN")
+			log.Printf("write local failed: %v", err)
 			return
 		}
 
@@ -127,14 +128,13 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		buf = append(buf, data[:]...)
 		_, err := pc.WriteTo(buf[3:], h.remoteAddr)
 		if err != nil {
-			log.Printf("failed to write UDP payload to Shadowsocks server: %v", err)
 			h.Close(conn)
-			return errors.New("failed to write data")
+			return errors.New(fmt.Sprintf("write remote failed: %v", err))
 		}
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New("connection does not exists")
+		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 

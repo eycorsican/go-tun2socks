@@ -13,10 +13,11 @@ import (
 	"unsafe"
 )
 
+// lwIP runs in a single thread, locking is needed in Go runtime.
+var lwipMutex = &sync.Mutex{}
+
 var listenTCPPCB *C.struct_tcp_pcb
 var listenUDPPCB *C.struct_udp_pcb
-var lwipMutex = &sync.Mutex{}
-var udpMutex = &sync.Mutex{}
 
 func Setup() {
 	C.lwip_init()

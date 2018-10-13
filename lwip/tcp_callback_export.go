@@ -26,7 +26,7 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 
 	conn, err2 := NewTCPConnection(newpcb, tcpConnectionHandler)
 	if err2 != nil {
-		log.Printf("failed to create TCP connection: %v", err2)
+		log.Printf("create TCP connection failed: %v", err2)
 		return C.ERR_OK
 	}
 
@@ -46,6 +46,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	conn, ok := tcpConns.Load(GetConnKeyVal(arg))
 	if !ok {
 		// The connection does not exists.
+		log.Printf("connection does not exists")
 		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}
@@ -70,10 +71,8 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	FreeBytes(buf)
 
 	if handlerErr != nil {
-		log.Printf("handle recevived data failed: %v", handlerErr)
-
-		// We assume the connection must have been aborted when handlerErr is not
-		// nil, ortherwise we are risking memory leak here.
+		log.Printf("handle data failed: %v", handlerErr)
+		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}
 	return C.ERR_OK
@@ -85,6 +84,7 @@ func TCPSentFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, len C.u16_t) C.err_t 
 		conn.(tun2socks.Connection).Sent(uint16(len))
 		return C.ERR_OK
 	} else {
+		log.Printf("connection does not exists")
 		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}
@@ -106,5 +106,8 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 
 //export TCPPollFn
 func TCPPollFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb) C.err_t {
+	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
+		conn.(tun2socks.Connection).Poll()
+	}
 	return C.ERR_OK
 }

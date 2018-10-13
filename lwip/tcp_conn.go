@@ -6,12 +6,13 @@ package lwip
 */
 import "C"
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
 	"net"
-	"time"
+	"sync"
 	"unsafe"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
@@ -24,15 +25,22 @@ var (
 )
 
 type tcpConn struct {
-	pcb        *C.struct_tcp_pcb
-	handler    tun2socks.ConnectionHandler
-	network    string
-	remoteAddr string
-	remotePort uint16
-	localAddr  string
-	localPort  uint16
-	connKeyArg unsafe.Pointer
-	connKey    uint32
+	sync.Mutex
+
+	pcb          *C.struct_tcp_pcb
+	handler      tun2socks.ConnectionHandler
+	network      string
+	remoteAddr   string
+	remotePort   uint16
+	localAddr    string
+	localPort    uint16
+	connKeyArg   unsafe.Pointer
+	connKey      uint32
+	closing      bool
+	localBuffer  *bytes.Buffer
+	remoteBuffer *bytes.Buffer
+	localLock    sync.RWMutex
+	remoteLock   sync.RWMutex
 }
 
 func checkTCPConns() {
@@ -62,12 +70,15 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		handler: handler,
 		network: "tcp",
 		// FIXME: need to handle IPv6
-		remoteAddr: GetIP4Addr(pcb.local_ip),
-		remotePort: uint16(pcb.local_port),
-		localAddr:  GetIP4Addr(pcb.remote_ip),
-		localPort:  uint16(pcb.remote_port),
-		connKeyArg: connKeyArg,
-		connKey:    connKey,
+		remoteAddr:   GetIP4Addr(pcb.local_ip),
+		remotePort:   uint16(pcb.local_port),
+		localAddr:    GetIP4Addr(pcb.remote_ip),
+		localPort:    uint16(pcb.remote_port),
+		connKeyArg:   connKeyArg,
+		connKey:      connKey,
+		closing:      false,
+		localBuffer:  &bytes.Buffer{},
+		remoteBuffer: &bytes.Buffer{},
 	}
 
 	// Associate conn with key and save to the global map.
@@ -97,64 +108,139 @@ func (conn *tcpConn) LocalAddr() net.Addr {
 	return MustResolveTCPAddr(conn.localAddr, conn.localPort)
 }
 
-func (conn *tcpConn) Receive(data []byte) error {
-	// Process received data
-	err := conn.handler.DidReceive(conn, data)
+func (conn *tcpConn) writeRemote() error {
+	conn.remoteLock.RLock()
+	sentSize := conn.remoteBuffer.Len()
+	err := conn.handler.DidReceive(conn, conn.remoteBuffer.Bytes())
+	conn.remoteLock.RUnlock()
 	if err != nil {
-		conn.Abort()
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}
 
-	if conn.pcb == nil {
-		return errors.New("pcb has been released")
+	conn.remoteLock.Lock()
+	conn.remoteBuffer.Reset()
+	conn.remoteLock.Unlock()
+
+	C.tcp_recved(conn.pcb, C.u16_t(sentSize))
+
+	return nil
+}
+
+func (conn *tcpConn) Receive(data []byte) error {
+	conn.remoteLock.Lock()
+	_, err := conn.remoteBuffer.ReadFrom(bytes.NewReader(data))
+	conn.remoteLock.Unlock()
+	if err != nil {
+		return errors.New(fmt.Sprintf("write remote buffer failed: %v", err))
 	}
 
-	// We should call tcp_recved() after data have been processed, by default we assume
-	// all pbuf data have been processed.
-	C.tcp_recved(conn.pcb, C.u16_t(len(data)))
+	return conn.writeRemote()
+}
+
+func (conn *tcpConn) writeLocal() error {
+	lwipMutex.Lock()
+	conn.localLock.Lock()
+	defer func() {
+		conn.localLock.Unlock()
+		lwipMutex.Unlock()
+	}()
+
+	var offset = 0
+	for {
+		pendingSize := conn.localBuffer.Len() - offset
+		if pendingSize == 0 {
+			conn.localBuffer.Reset()
+			break
+		} else if pendingSize < 0 {
+			log.Fatal("calculating pending data size worng")
+		}
+
+		sendSize := int(conn.pcb.snd_buf)
+		if pendingSize < sendSize {
+			sendSize = pendingSize
+		}
+
+		if sendSize == 0 {
+			if offset != 0 {
+				conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
+			}
+			break
+		}
+
+		err := C.tcp_write(conn.pcb, unsafe.Pointer(&(conn.localBuffer.Bytes()[offset])), C.u16_t(sendSize), C.TCP_WRITE_FLAG_COPY)
+		if err == C.ERR_OK {
+			offset += sendSize
+			continue
+		} else {
+			conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
+			break
+		}
+	}
+
+	err := C.tcp_output(conn.pcb)
+	if err != C.ERR_OK {
+		log.Fatal("tcp_output error")
+	}
+
 	return nil
 }
 
 func (conn *tcpConn) Write(data []byte) error {
-	lwipMutex.Lock()
-	defer func() {
-		lwipMutex.Unlock()
-	}()
-
-	for {
-		if conn.pcb == nil {
-			return errors.New("nil tcp pcb")
-		}
-
-		err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
-		if err != C.ERR_OK {
-			if err == C.ERR_MEM {
-				lwipMutex.Unlock()
-				time.Sleep(10 * time.Millisecond)
-				lwipMutex.Lock()
-				continue
-			}
-			conn.handler.DidClose(conn)
-			conn.Close()
-			return errors.New("failed to enqueue data: ERR_OTHER")
-		} else {
-			err = C.tcp_output(conn.pcb)
-			if err != C.ERR_OK {
-				log.Printf("failed to output data: %v", err)
-			}
-		}
-		return nil
+	conn.localLock.Lock()
+	_, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
+	conn.localLock.Unlock()
+	if err != nil {
+		return errors.New("write local buffer failed")
 	}
+
+	go conn.writeLocal()
+
+	return nil
 }
 
 func (conn *tcpConn) Sent(len uint16) {
 	conn.handler.DidSend(conn, len)
+	conn.CheckState()
+}
+
+func (conn *tcpConn) isClosing() bool {
+	conn.Lock()
+	defer conn.Unlock()
+	return conn.closing
+}
+
+func (conn *tcpConn) localBufferLen() int {
+	conn.localLock.RLock()
+	defer conn.localLock.RUnlock()
+	return conn.localBuffer.Len()
+}
+
+func (conn *tcpConn) CheckState() {
+
+	// Still have some data to send
+	if conn.localBufferLen() > 0 {
+		go conn.writeLocal()
+		return
+	}
+
+	if conn.isClosing() {
+		conn._close()
+	}
 }
 
 func (conn *tcpConn) Close() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	// Close maybe called outside of lwIP thread, we should not call tcp_close() in this
+	// function, instead just make a flag to indicate we are closing the connection.
+	conn.closing = true
+	return nil
+}
+
+func (conn *tcpConn) _close() error {
 	if conn.pcb == nil {
-		log.Printf("nil pcb when close")
-		return nil
+		log.Fatal("nil pcb when close, maybe aborted already")
 	}
 
 	C.tcp_arg(conn.pcb, nil)
@@ -162,22 +248,16 @@ func (conn *tcpConn) Close() error {
 	C.tcp_sent(conn.pcb, nil)
 	C.tcp_err(conn.pcb, nil)
 
-	err := C.tcp_close(conn.pcb)
-	if err != C.ERR_OK {
-		return errors.New("failed to close tcp connection")
-	}
-
 	conn.Release()
+
+	C.tcp_close(conn.pcb)
+
 	return nil
 }
 
 func (conn *tcpConn) Abort() {
-	if conn.pcb == nil {
-		return
-	}
-
-	C.tcp_abort(conn.pcb)
 	conn.Release()
+	C.tcp_abort(conn.pcb)
 }
 
 func (conn *tcpConn) Err(err error) {
@@ -187,27 +267,16 @@ func (conn *tcpConn) Err(err error) {
 
 func (conn *tcpConn) LocalDidClose() {
 	conn.handler.LocalDidClose(conn)
-}
-
-func (conn *tcpConn) Reset() {
-	if conn.pcb == nil {
-		return
-	}
-
-	C.tcp_arg(conn.pcb, nil)
-	C.tcp_recv(conn.pcb, nil)
-	C.tcp_sent(conn.pcb, nil)
-	C.tcp_err(conn.pcb, nil)
-	C.tcp_abort(conn.pcb)
-	conn.Release()
+	conn.Close()
+	conn.CheckState()
 }
 
 func (conn *tcpConn) Release() {
-	conn.pcb = nil
-
 	if _, found := tcpConns.Load(conn.connKey); found {
 		FreeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
-		log.Printf("released a TCP connection")
 	}
+}
+func (conn *tcpConn) Poll() {
+	conn.CheckState()
 }

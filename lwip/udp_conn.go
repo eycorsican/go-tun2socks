@@ -7,6 +7,7 @@ package lwip
 import "C"
 import (
 	"errors"
+	"fmt"
 	"net"
 	"unsafe"
 
@@ -49,7 +50,7 @@ func (conn *udpConn) LocalAddr() net.Addr {
 func (conn *udpConn) Receive(data []byte) error {
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
-		return errors.New("failed to handle received UDP data")
+		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}
 	return nil
 }
@@ -61,9 +62,7 @@ func (conn *udpConn) Write(data []byte) error {
 
 	buf := C.pbuf_alloc(C.PBUF_TRANSPORT, C.u16_t(len(data)), C.PBUF_RAM)
 	C.pbuf_take(buf, unsafe.Pointer(&data[0]), C.u16_t(len(data)))
-	// lwipMutex.Lock()
 	C.udp_sendto(conn.pcb, buf, &conn.localAddr, conn.localPort, &conn.remoteAddr, conn.remotePort)
-	// lwipMutex.Unlock()
 	C.pbuf_free(buf)
 	return nil
 }
@@ -80,18 +79,18 @@ func (conn *udpConn) Close() error {
 	return nil
 }
 
-func (conn *udpConn) Abort() {
-	// unused
-}
-
 func (conn *udpConn) Err(err error) {
 	// unused
 }
 
-func (conn *udpConn) Reset() {
+func (conn *udpConn) Abort() {
 	// unused
 }
 
 func (conn *udpConn) LocalDidClose() {
+	// unused
+}
+
+func (conn *udpConn) Poll() {
 	// unused
 }

@@ -26,21 +26,12 @@ type tcpHandler struct {
 	tgtSent  map[tun2socks.Connection]bool
 }
 
-func (h *tcpHandler) getConn(conn tun2socks.Connection) (net.Conn, bool) {
-	h.Lock()
-	defer h.Unlock()
-	if c, ok := h.conns[conn]; ok {
-		return c, true
-	}
-	return nil, false
-}
-
 func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 	buf := lwip.NewBytes(lwip.BufSize)
 
 	defer func() {
-		conn.Close() // also close tun2socks connection here
 		h.Close(conn)
+		conn.Close() // also close tun2socks connection here
 		lwip.FreeBytes(buf)
 	}()
 
@@ -49,9 +40,8 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 		if err != nil {
 			if err != io.EOF {
 				log.Printf("read remote failed: %v", err)
-				return
 			}
-			break
+			return
 		}
 		err = conn.Write(buf[:n])
 		if err != nil {
@@ -78,9 +68,14 @@ func NewTCPHandler(server, cipher, password string) tun2socks.ConnectionHandler 
 
 func (h *tcpHandler) sendTargetAddress(conn tun2socks.Connection) error {
 	h.Lock()
+	defer h.Unlock()
+
 	tgtAddr, ok1 := h.tgtAddrs[conn]
 	rc, ok2 := h.conns[conn]
-	h.Unlock()
+	sent, ok3 := h.tgtSent[conn]
+	if ok3 && sent {
+		return nil
+	}
 	if ok1 && ok2 {
 		tgt := sssocks.ParseAddr(tgtAddr.String())
 		_, err := rc.Write(tgt)
@@ -113,27 +108,24 @@ func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	h.Lock()
 	rc, ok1 := h.conns[conn]
-	sent, ok2 := h.tgtSent[conn]
 	h.Unlock()
 
 	if ok1 {
-		if !ok2 || !sent {
-			err := h.sendTargetAddress(conn)
-			if err != nil {
-				h.Close(conn)
-				return err
-			}
+		err := h.sendTargetAddress(conn)
+		if err != nil {
+			h.Close(conn)
+			return err
 		}
-		_, err := rc.Write(data)
+		_, err = rc.Write(data)
 		if err != nil {
 			h.Close(conn)
 			return errors.New(fmt.Sprintf("write remote failed: %v", err))
 		}
+		return nil
 	} else {
 		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr().String(), conn.RemoteAddr().String()))
+		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
 	}
-	return nil
 }
 
 func (h *tcpHandler) DidSend(conn tun2socks.Connection, len uint16) {
@@ -156,16 +148,14 @@ func (h *tcpHandler) LocalDidClose(conn tun2socks.Connection) {
 }
 
 func (h *tcpHandler) Close(conn tun2socks.Connection) {
-	if rc, found := h.getConn(conn); found {
-		rc.Close()
-		h.Lock()
-		delete(h.conns, conn)
-		h.Unlock()
-	}
-
 	h.Lock()
 	defer h.Unlock()
 
+	if rc, found := h.conns[conn]; found {
+		rc.Close()
+	}
+
+	delete(h.conns, conn)
 	delete(h.tgtAddrs, conn)
 	delete(h.tgtSent, conn)
 }

@@ -56,15 +56,14 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
 		input.SetDeadline(time.Time{})
 		n, err := input.Read(buf)
 		if err != nil {
-			log.Printf("failed to read UDP data from SOCKS5 server: %v", err)
+			log.Printf("read remote failed: %v", err)
 			return
 		}
 
-		// no copy
 		addr := SplitAddr(buf[3:])
 		err = conn.Write(buf[int(3+len(addr)):n])
 		if err != nil {
-			log.Printf("failed to write UDP data to TUN")
+			log.Printf("write local failed: %v", err)
 			return
 		}
 	}
@@ -73,7 +72,6 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
 func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	c, err := net.Dial("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort))
 	if err != nil {
-		log.Printf("failed to dial TCP while creating SOCKS5 UDP associate connection")
 		return err
 	}
 
@@ -83,7 +81,6 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	buf := make([]byte, MaxAddrLen)
 	// read VER METHOD
 	if _, err := io.ReadFull(c, buf[:2]); err != nil {
-		log.Printf("failed to read SOCKS5 version message reply", err)
 		return err
 	}
 
@@ -93,19 +90,16 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 
 	// read VER REP RSV ATYP BND.ADDR BND.PORT
 	if _, err := io.ReadFull(c, buf[:3]); err != nil {
-		log.Printf("failed to read SOCKS5 request reply", err)
 		return err
 	}
 
 	rep := buf[1]
 	if rep != 0 {
-		log.Printf("SOCKS5 server reply: %d, not succeeded", rep)
-		return err
+		return errors.New("SOCKS handshake failed")
 	}
 
 	uAddr, err := readAddr(c, buf)
 	if err != nil {
-		log.Printf("failed to read UDP assiciate server address")
 		return err
 	}
 
@@ -113,10 +107,8 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 
 	pc, err := net.Dial("udp", uAddr.String())
 	if err != nil {
-		log.Printf("failed to dial UDP associate server")
 		return err
 	}
-	log.Printf("dialed UDP connection: %v -> %v", pc.LocalAddr(), pc.RemoteAddr())
 
 	h.Lock()
 	h.tcpConns[conn] = c
@@ -138,14 +130,13 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		buf = append(buf, data[:]...)
 		_, err := pc.Write(buf)
 		if err != nil {
-			log.Printf("failed to write UDP payload to SOCKS5 server: %v", err)
 			h.Close(conn)
-			return errors.New("failed to write data")
+			return errors.New(fmt.Sprintf("write remote failed: %v", err))
 		}
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New("connection does not exists")
+		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 
