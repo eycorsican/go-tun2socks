@@ -3,7 +3,8 @@ XGOCMD=xgo
 GOBUILD=$(GOCMD) build
 GORUN=$(GOCMD) run
 GOCLEAN=$(GOCMD) clean
-LDFLAGS='-s -w'
+DEBUG_LDFLAGS=''
+RELEASE_LDFLAGS='-s -w'
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
@@ -74,15 +75,20 @@ define with_copied_files
 	$(call clear_files)
 endef
 
-BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags $(LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v"
-XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(LDFLAGS) --targets=*/* $(CMDDIR)"
-RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(LDFLAGS) --targets=linux/amd64,darwin/amd64,windows/amd64 $(CMDDIR)"
+DBUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -race -ldflags $(DEBUG_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v"
+BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags $(RELEASE_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v"
+XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=*/* $(CMDDIR)"
+RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=linux/amd64,darwin/amd64,windows/amd64 $(CMDDIR)"
 
 all: build
 
 build:
 	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(BUILD_CMD))
+
+dbuild:
+	mkdir -p $(BUILDDIR)
+	$(call with_copied_files,$(DBUILD_CMD))
 
 xbuild:
 	mkdir -p $(BUILDDIR)
