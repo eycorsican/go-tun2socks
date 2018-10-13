@@ -27,20 +27,18 @@ var (
 type tcpConn struct {
 	sync.Mutex
 
-	pcb          *C.struct_tcp_pcb
-	handler      tun2socks.ConnectionHandler
-	network      string
-	remoteAddr   string
-	remotePort   uint16
-	localAddr    string
-	localPort    uint16
-	connKeyArg   unsafe.Pointer
-	connKey      uint32
-	closing      bool
-	localBuffer  *bytes.Buffer
-	remoteBuffer *bytes.Buffer
-	localLock    sync.RWMutex
-	remoteLock   sync.RWMutex
+	pcb         *C.struct_tcp_pcb
+	handler     tun2socks.ConnectionHandler
+	network     string
+	remoteAddr  string
+	remotePort  uint16
+	localAddr   string
+	localPort   uint16
+	connKeyArg  unsafe.Pointer
+	connKey     uint32
+	closing     bool
+	localBuffer *bytes.Buffer
+	localLock   sync.RWMutex
 }
 
 func checkTCPConns() {
@@ -70,15 +68,14 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		handler: handler,
 		network: "tcp",
 		// FIXME: need to handle IPv6
-		remoteAddr:   GetIP4Addr(pcb.local_ip),
-		remotePort:   uint16(pcb.local_port),
-		localAddr:    GetIP4Addr(pcb.remote_ip),
-		localPort:    uint16(pcb.remote_port),
-		connKeyArg:   connKeyArg,
-		connKey:      connKey,
-		closing:      false,
-		localBuffer:  &bytes.Buffer{},
-		remoteBuffer: &bytes.Buffer{},
+		remoteAddr:  GetIP4Addr(pcb.local_ip),
+		remotePort:  uint16(pcb.local_port),
+		localAddr:   GetIP4Addr(pcb.remote_ip),
+		localPort:   uint16(pcb.remote_port),
+		connKeyArg:  connKeyArg,
+		connKey:     connKey,
+		closing:     false,
+		localBuffer: &bytes.Buffer{},
 	}
 
 	// Associate conn with key and save to the global map.
@@ -108,33 +105,15 @@ func (conn *tcpConn) LocalAddr() net.Addr {
 	return MustResolveTCPAddr(conn.localAddr, conn.localPort)
 }
 
-func (conn *tcpConn) writeRemote() error {
-	conn.remoteLock.RLock()
-	sentSize := conn.remoteBuffer.Len()
-	err := conn.handler.DidReceive(conn, conn.remoteBuffer.Bytes())
-	conn.remoteLock.RUnlock()
+func (conn *tcpConn) Receive(data []byte) error {
+	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}
 
-	conn.remoteLock.Lock()
-	conn.remoteBuffer.Reset()
-	conn.remoteLock.Unlock()
-
-	C.tcp_recved(conn.pcb, C.u16_t(sentSize))
+	C.tcp_recved(conn.pcb, C.u16_t(len(data)))
 
 	return nil
-}
-
-func (conn *tcpConn) Receive(data []byte) error {
-	conn.remoteLock.Lock()
-	_, err := conn.remoteBuffer.ReadFrom(bytes.NewReader(data))
-	conn.remoteLock.Unlock()
-	if err != nil {
-		return errors.New(fmt.Sprintf("write remote buffer failed: %v", err))
-	}
-
-	return conn.writeRemote()
 }
 
 func (conn *tcpConn) writeLocal() error {
@@ -216,8 +195,7 @@ func (conn *tcpConn) localBufferLen() int {
 }
 
 func (conn *tcpConn) CheckState() {
-
-	// Still have some data to send
+	// Still have data to send
 	if conn.localBufferLen() > 0 {
 		go conn.writeLocal()
 		return
