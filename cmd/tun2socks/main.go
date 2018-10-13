@@ -34,7 +34,7 @@ func main() {
 	proxyCipher := flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 	delayICMP := flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
-	udpTimeout := flag.Duration("udpTimeout", 2*time.Minute, "Set timeout for UDP proxy connection")
+	udpTimeout := flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connection")
 
 	flag.Parse()
 

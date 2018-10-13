@@ -39,8 +39,9 @@ func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration) tu
 }
 
 func (h *udpHandler) handleTCP(conn tun2socks.Connection, c net.Conn) {
-	var buf = make([]byte, 1)
+	var buf = make([]byte, 1024)
 	for {
+		c.SetDeadline(time.Time{})
 		_, err := c.Read(buf)
 		if err != nil {
 			h.Close(conn)
@@ -116,14 +117,14 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 		return errors.New("SOCKS handshake failed")
 	}
 
-	uAddr, err := readAddr(c, buf)
+	remoteAddr, err := readAddr(c, buf)
 	if err != nil {
 		return err
 	}
 
 	go h.handleTCP(conn, c)
 
-	pc, err := net.Dial("udp", uAddr.String())
+	pc, err := net.Dial("udp", remoteAddr.String())
 	if err != nil {
 		return err
 	}
@@ -156,6 +157,7 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 					if err != nil {
 						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
 					}
+					h.Close(conn)
 					return nil
 				}
 			}

@@ -74,6 +74,7 @@ func (conn *udpConn) Sent(len uint16) {
 func (conn *udpConn) Close() error {
 	connId := udpConnId{
 		src: conn.LocalAddr().String(),
+		dst: conn.RemoteAddr().String(),
 	}
 	udpConns.Delete(connId)
 	return nil

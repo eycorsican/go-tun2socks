@@ -120,6 +120,7 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 					if err != nil {
 						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
 					}
+					h.Close(conn)
 					return nil
 				}
 			}
