@@ -65,10 +65,14 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		return err
 	}
 
-	buf := NewBytes(int(p.tot_len))
-	C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
-	handlerErr := conn.(tun2socks.Connection).Receive(buf[:int(p.tot_len)])
-	FreeBytes(buf)
+	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
+	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
+	if p.tot_len != p.len {
+		log.Printf("p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
+	}
+
+	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
+	handlerErr := conn.(tun2socks.Connection).Receive(buf)
 
 	if handlerErr != nil {
 		log.Printf("handle data failed: %v", handlerErr)

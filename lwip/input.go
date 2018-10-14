@@ -2,6 +2,7 @@ package lwip
 
 /*
 #cgo CFLAGS: -I./src/include
+#include "lwip/pbuf.h"
 #include "lwip/timeouts.h"
 #include "lwip/tcp.h"
 
@@ -19,6 +20,8 @@ import (
 func Input(pkt []byte) error {
 	buf := C.pbuf_alloc(C.PBUF_RAW, C.u16_t(len(pkt)), C.PBUF_RAM)
 	C.pbuf_take(buf, unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)))
+
+	// buf := C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_ROM)
 
 	// buf will be freed by lwip.
 	lwipMutex.Lock()

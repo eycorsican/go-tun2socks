@@ -50,8 +50,11 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 		log.Printf("created new UDP connection %v <-> %v", conn.(tun2socks.Connection).LocalAddr().String(), conn.(tun2socks.Connection).RemoteAddr().String())
 	}
 
-	buf := NewBytes(int(p.tot_len))
-	C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
-	conn.(tun2socks.Connection).Receive(buf[:int(p.tot_len)])
-	FreeBytes(buf)
+	// buf := NewBytes(int(p.tot_len))
+	// C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
+	// conn.(tun2socks.Connection).Receive(buf[:int(p.tot_len)])
+	// FreeBytes(buf)
+
+	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
+	conn.(tun2socks.Connection).Receive(buf)
 }
