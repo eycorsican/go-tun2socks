@@ -6,7 +6,6 @@ package lwip
 */
 import "C"
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -21,18 +20,20 @@ import (
 type tcpConn struct {
 	sync.Mutex
 
-	pcb         *C.struct_tcp_pcb
-	handler     tun2socks.ConnectionHandler
-	network     string
-	remoteAddr  string
-	remotePort  uint16
-	localAddr   string
-	localPort   uint16
-	connKeyArg  unsafe.Pointer
-	connKey     uint32
-	closing     bool
-	localBuffer *bytes.Buffer
-	localLock   sync.RWMutex
+	pcb        *C.struct_tcp_pcb
+	handler    tun2socks.ConnectionHandler
+	network    string
+	remoteAddr string
+	remotePort uint16
+	localAddr  string
+	localPort  uint16
+	connKeyArg unsafe.Pointer
+	connKey    uint32
+	closing    bool
+	localLock  sync.RWMutex
+
+	// Data from remote not yet write to local will buffer into this channel.
+	localWriteCh chan []byte
 }
 
 func checkTCPConns() {
@@ -62,14 +63,14 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		handler: handler,
 		network: "tcp",
 		// FIXME: need to handle IPv6
-		remoteAddr:  GetIP4Addr(pcb.local_ip),
-		remotePort:  uint16(pcb.local_port),
-		localAddr:   GetIP4Addr(pcb.remote_ip),
-		localPort:   uint16(pcb.remote_port),
-		connKeyArg:  connKeyArg,
-		connKey:     connKey,
-		closing:     false,
-		localBuffer: &bytes.Buffer{},
+		remoteAddr:   GetIP4Addr(pcb.local_ip),
+		remotePort:   uint16(pcb.local_port),
+		localAddr:    GetIP4Addr(pcb.remote_ip),
+		localPort:    uint16(pcb.remote_port),
+		connKeyArg:   connKeyArg,
+		connKey:      connKey,
+		closing:      false,
+		localWriteCh: make(chan []byte, 256),
 	}
 
 	// Associate conn with key and save to the global map.
@@ -110,55 +111,29 @@ func (conn *tcpConn) Receive(data []byte) error {
 	return nil
 }
 
-func (conn *tcpConn) writeLocal() error {
-	lwipMutex.Lock()
-	conn.localLock.Lock()
-	defer func() {
-		conn.localLock.Unlock()
-		lwipMutex.Unlock()
-	}()
-
-	if conn.localBuffer.Len() > 0 {
-		var offset = 0
-		for {
-			pendingSize := conn.localBuffer.Len() - offset
-			if pendingSize == 0 {
-				conn.localBuffer = &bytes.Buffer{}
-				break
-			} else if pendingSize < 0 {
-				log.Fatal("calculating pending data size worng")
+func (conn *tcpConn) tryWriteLocal() {
+Loop:
+	for {
+		select {
+		case data := <-conn.localWriteCh:
+			written, err := conn.tcpWrite(data)
+			if !written || err != nil {
+				// Data not written, buffer again.
+				conn.localWriteCh <- data
+				break Loop
 			}
-
-			sendSize := int(conn.pcb.snd_buf)
-			if pendingSize < sendSize {
-				sendSize = pendingSize
-			}
-
-			if sendSize == 0 {
-				if offset != 0 {
-					conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
-				}
-				break
-			}
-
-			// enqueue data
-			err := C.tcp_write(conn.pcb, unsafe.Pointer(&(conn.localBuffer.Bytes()[offset])), C.u16_t(sendSize), C.TCP_WRITE_FLAG_COPY)
-			if err == C.ERR_OK {
-				offset += sendSize
-			} else {
-				conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
-				break
-			}
+		default:
+			break Loop
 		}
 	}
 
 	// Actually send data.
+	lwipMutex.Lock()
 	err := C.tcp_output(conn.pcb)
+	lwipMutex.Unlock()
 	if err != C.ERR_OK {
 		log.Fatal("tcp_output error")
 	}
-
-	return nil
 }
 
 func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
@@ -184,23 +159,19 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 	}
 
 	if !written {
-		conn.localLock.Lock()
-		// Queue is full and data are not written yet, buffer the data.
-		_, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
-		conn.localLock.Unlock()
-		if err != nil {
-			return 0, errors.New("write local buffer failed")
-		}
+		// Not written yet, buffer the data.
+		conn.localWriteCh <- data
 	}
 
 	// Try to send pending data if any, and call tcp_output().
-	go conn.writeLocal()
+	go conn.tryWriteLocal()
 
 	return len(data), nil
 }
 
 func (conn *tcpConn) Sent(len uint16) {
 	conn.handler.DidSend(conn, len)
+	// Some packets are acknowledged by local client, check if any pending data to send.
 	conn.CheckState()
 }
 
@@ -210,16 +181,17 @@ func (conn *tcpConn) isClosing() bool {
 	return conn.closing
 }
 
-func (conn *tcpConn) localBufferLen() int {
+func (conn *tcpConn) localWriteChLen() int {
 	conn.localLock.RLock()
 	defer conn.localLock.RUnlock()
-	return conn.localBuffer.Len()
+	return len(conn.localWriteCh)
 }
 
 func (conn *tcpConn) CheckState() {
 	// Still have data to send
-	if conn.localBufferLen() > 0 {
-		go conn.writeLocal()
+	if conn.localWriteChLen() > 0 {
+		go conn.tryWriteLocal()
+		// Return and wait for the Sent() callback to be called, and then check again.
 		return
 	}
 
@@ -267,8 +239,8 @@ func (conn *tcpConn) Err(err error) {
 
 func (conn *tcpConn) LocalDidClose() {
 	conn.handler.LocalDidClose(conn)
-	conn.Close()
-	conn.CheckState()
+	conn.Close()      // flag closing
+	conn.CheckState() // check pending data
 }
 
 func (conn *tcpConn) Release() {
