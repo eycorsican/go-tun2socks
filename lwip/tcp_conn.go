@@ -136,7 +136,7 @@ Loop:
 	err := C.tcp_output(conn.pcb)
 	lwipMutex.Unlock()
 	if err != C.ERR_OK {
-		log.Fatal("tcp_output error")
+		log.Fatal("tcp_output error with lwip error code: %v", int(err))
 	}
 }
 
