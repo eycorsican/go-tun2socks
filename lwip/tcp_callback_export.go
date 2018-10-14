@@ -6,6 +6,7 @@ package lwip
 */
 import "C"
 import (
+	"errors"
 	"log"
 	"unsafe"
 
@@ -67,7 +68,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
 	if p.tot_len != p.len {
-		log.Fatal("p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
+		log.Fatal("tcp_recv p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
 	}
 
 	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
@@ -99,11 +100,11 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
 		switch err {
 		case C.ERR_ABRT:
-			conn.(tun2socks.Connection).Err(tcpAbortError)
+			conn.(tun2socks.Connection).Err(errors.New("error abort"))
 		case C.ERR_RST:
-			conn.(tun2socks.Connection).Err(tcpResetError)
+			conn.(tun2socks.Connection).Err(errors.New("error reset"))
 		default:
-			conn.(tun2socks.Connection).Err(tcpUnknownError)
+			conn.(tun2socks.Connection).Err(errors.New("error other"))
 		}
 	}
 }

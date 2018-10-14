@@ -52,7 +52,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
 	if p.tot_len != p.len {
-		log.Fatal("p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
+		log.Fatal("udp_recv p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]

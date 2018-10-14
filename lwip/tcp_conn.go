@@ -18,12 +18,6 @@ import (
 	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
-var (
-	tcpAbortError   = errors.New("TCP abort")
-	tcpResetError   = errors.New("TCP reset")
-	tcpUnknownError = errors.New("unknown TCP error")
-)
-
 type tcpConn struct {
 	sync.Mutex
 
@@ -124,38 +118,42 @@ func (conn *tcpConn) writeLocal() error {
 		lwipMutex.Unlock()
 	}()
 
-	var offset = 0
-	for {
-		pendingSize := conn.localBuffer.Len() - offset
-		if pendingSize == 0 {
-			conn.localBuffer.Reset()
-			break
-		} else if pendingSize < 0 {
-			log.Fatal("calculating pending data size worng")
-		}
-
-		sendSize := int(conn.pcb.snd_buf)
-		if pendingSize < sendSize {
-			sendSize = pendingSize
-		}
-
-		if sendSize == 0 {
-			if offset != 0 {
-				conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
+	if conn.localBuffer.Len() > 0 {
+		var offset = 0
+		for {
+			pendingSize := conn.localBuffer.Len() - offset
+			if pendingSize == 0 {
+				conn.localBuffer = &bytes.Buffer{}
+				break
+			} else if pendingSize < 0 {
+				log.Fatal("calculating pending data size worng")
 			}
-			break
-		}
 
-		err := C.tcp_write(conn.pcb, unsafe.Pointer(&(conn.localBuffer.Bytes()[offset])), C.u16_t(sendSize), C.TCP_WRITE_FLAG_COPY)
-		if err == C.ERR_OK {
-			offset += sendSize
-			continue
-		} else {
-			conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
-			break
+			sendSize := int(conn.pcb.snd_buf)
+			if pendingSize < sendSize {
+				sendSize = pendingSize
+			}
+
+			if sendSize == 0 {
+				if offset != 0 {
+					conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
+				}
+				break
+			}
+
+			// enqueue data
+			err := C.tcp_write(conn.pcb, unsafe.Pointer(&(conn.localBuffer.Bytes()[offset])), C.u16_t(sendSize), C.TCP_WRITE_FLAG_COPY)
+			if err == C.ERR_OK {
+				offset += sendSize
+				continue
+			} else {
+				conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
+				break
+			}
 		}
 	}
 
+	// Actually send data.
 	err := C.tcp_output(conn.pcb)
 	if err != C.ERR_OK {
 		log.Fatal("tcp_output error")
@@ -165,16 +163,28 @@ func (conn *tcpConn) writeLocal() error {
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
-	conn.localLock.Lock()
-	n, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
-	conn.localLock.Unlock()
-	if err != nil {
-		return int(n), errors.New("write local buffer failed")
+	lwipMutex.Lock()
+	// enqueue data
+	err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
+	lwipMutex.Unlock()
+	if err == C.ERR_MEM {
+		conn.localLock.Lock()
+		// Queue is full, buffer the data.
+		_, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
+		conn.localLock.Unlock()
+		if err != nil {
+			return 0, errors.New("write local buffer failed")
+		}
 	}
 
+	if err != C.ERR_OK {
+		return 0, errors.New(fmt.Sprintf("lwip tcp_write failed with error code: %v", int(err)))
+	}
+
+	// Try to send pending data if any, and call tcp_output().
 	go conn.writeLocal()
 
-	return int(n), nil
+	return len(data), nil
 }
 
 func (conn *tcpConn) Sent(len uint16) {
