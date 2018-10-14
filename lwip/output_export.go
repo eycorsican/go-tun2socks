@@ -12,17 +12,24 @@ import (
 
 //export Output
 func Output(p *C.struct_pbuf) C.err_t {
-	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
-	if p.tot_len != p.len {
-		log.Fatal("p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
+	// In most case, all data are in the same pbuf struct, data copying can be avoid by
+	// backing Go slice with C array. Buf if there are multiple pbuf structs holding the
+	// data, we must copy data for sending them in one pass.
+	if p.tot_len == p.len {
+		buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.len):int(p.len)]
+		_, err := OutputFn(buf)
+		if err != nil {
+			log.Fatal("failed to output packets from stack: %v", err)
+		}
+	} else {
+		buf := NewBytes(int(p.tot_len))
+		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
+		_, err := OutputFn(buf)
+		FreeBytes(buf)
+		if err != nil {
+			log.Fatal("failed to output packets from stack: %v", err)
+		}
 	}
 
-	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
-	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
-	_, err := OutputFn(buf)
-	if err != nil {
-		log.Printf("failed to output packets from stack: %v", err)
-		return C.ERR_OK
-	}
 	return C.ERR_OK
 }
