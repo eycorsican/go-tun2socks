@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -20,8 +21,31 @@ import (
 )
 
 const (
+	MTU           = 1500
 	PROTOCOL_ICMP = 0x1
 )
+
+type icmpDelayedWriter struct {
+	stack lwip.LWIPStack
+	delay int
+}
+
+func (w *icmpDelayedWriter) Write(buf []byte) (int, error) {
+	if uint8(buf[9]) == PROTOCOL_ICMP && w.delay > 0 {
+		payload := make([]byte, len(buf))
+		copy(payload, buf)
+		go func(data []byte) {
+			time.Sleep(time.Duration(w.delay) * time.Millisecond)
+			_, err := w.stack.Write(data)
+			if err != nil {
+				log.Fatal("failed to input data to the stack: %v", err)
+			}
+		}(payload)
+		return len(buf), nil
+	} else {
+		return w.stack.Write(buf)
+	}
+}
 
 func main() {
 	tunName := flag.String("tunName", "tun1", "TUN interface name")
@@ -51,13 +75,14 @@ func main() {
 
 	// Open the tun device.
 	dnsServers := strings.Split(*dnsServer, ",")
-	dev, err := tun.OpenTunDevice(*tunName, *tunAddr, *tunGw, *tunMask, dnsServers)
+	tunDev, err := tun.OpenTunDevice(*tunName, *tunAddr, *tunGw, *tunMask, dnsServers)
 	if err != nil {
 		log.Fatalf("failed to open tun device: %v", err)
 	}
 
 	// Setup TCP/IP stack.
 	lwipStack := lwip.NewLWIPStack()
+	lwipWriter := &icmpDelayedWriter{stack: lwipStack, delay: *delayICMP}
 
 	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
@@ -80,34 +105,14 @@ func main() {
 	// Register an output function to write packets output from lwip stack to tun
 	// device, output function should be set before input any packets.
 	lwip.RegisterOutputFn(func(data []byte) (int, error) {
-		return dev.Write(data)
+		return tunDev.Write(data)
 	})
 
-	// Read packets from tun device and input to lwip stack.
+	// Copy packets from tun device to lwip stack.
 	go func() {
-		buf := lwip.NewBytes(lwip.BufSize)
-		defer lwip.FreeBytes(buf)
-		for {
-			n, err := dev.Read(buf[:])
-			if err != nil {
-				log.Fatal("failed to read from tun device: %v", err)
-			}
-			if uint8(buf[9]) == PROTOCOL_ICMP && *delayICMP > 0 {
-				payload := make([]byte, n)
-				copy(payload, buf[:n])
-				go func(data []byte) {
-					time.Sleep(time.Duration(*delayICMP) * time.Millisecond)
-					_, err = lwipStack.Write(data)
-					if err != nil {
-						log.Fatal("failed to input data to the stack: %v", err)
-					}
-				}(payload)
-			} else {
-				_, err = lwipStack.Write(buf[:n])
-				if err != nil {
-					log.Fatal("failed to input data to the stack: %v", err)
-				}
-			}
+		_, err := io.CopyBuffer(lwipWriter, tunDev, make([]byte, MTU))
+		if err != nil {
+			log.Fatal("copying data failed: %v", err)
 		}
 	}()
 

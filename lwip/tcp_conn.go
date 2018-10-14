@@ -70,7 +70,7 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		connKeyArg:   connKeyArg,
 		connKey:      connKey,
 		closing:      false,
-		localWriteCh: make(chan []byte, 256),
+		localWriteCh: make(chan []byte, 64),
 	}
 
 	// Associate conn with key and save to the global map.
@@ -102,7 +102,7 @@ func (conn *tcpConn) LocalAddr() net.Addr {
 
 func (conn *tcpConn) Receive(data []byte) error {
 	if conn.isClosing() {
-		return errors.New("conn is closing")
+		return errors.New(fmt.Sprintf("conn %v <-> %v is closing", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 
 	err := conn.handler.DidReceive(conn, data)
@@ -158,7 +158,7 @@ func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
 	if conn.isClosing() {
-		return 0, errors.New("conn is closing")
+		return 0, errors.New(fmt.Sprintf("conn %v <-> %v is closing", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 
 	written, err := conn.tcpWrite(data)

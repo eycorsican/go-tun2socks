@@ -21,7 +21,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	}()
 
 	if pcb == nil {
-		log.Printf("nil udp pcb in recv fn")
+		log.Printf("udp_recv pcb is nil")
 		return
 	}
 
@@ -47,7 +47,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			return
 		}
 		udpConns.Store(connId, conn)
-		log.Printf("created new UDP connection %v <-> %v", conn.(tun2socks.Connection).LocalAddr().String(), conn.(tun2socks.Connection).RemoteAddr().String())
+		log.Printf("created new UDP connection %v <-> %v", conn.(tun2socks.Connection).LocalAddr(), conn.(tun2socks.Connection).RemoteAddr())
 	}
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?

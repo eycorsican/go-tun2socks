@@ -31,13 +31,19 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 		return C.ERR_OK
 	}
 
-	log.Printf("created new TCP connection %v <-> %v", conn.LocalAddr().String(), conn.RemoteAddr().String())
+	log.Printf("created new TCP connection %v <-> %v", conn.LocalAddr(), conn.RemoteAddr())
 
 	return C.ERR_OK
 }
 
 //export TCPRecvFn
 func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err C.err_t) C.err_t {
+	if err != C.ERR_OK && err != C.ERR_ABRT {
+		log.Printf("receving data failed with lwip error code: %v", int(err))
+		return err
+	}
+
+	// Only free the pbuf when returning ERR_OK or ERR_ABRT.
 	defer func() {
 		if p != nil {
 			C.pbuf_free(p)
@@ -55,15 +61,11 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	if p == nil {
 		// The connection has been closed.
 		conn.(tun2socks.Connection).LocalDidClose()
-		return err
+		return C.ERR_OK
 	}
 
 	if tpcb == nil {
-		return err
-	}
-
-	if err != C.ERR_OK {
-		return err
+		log.Fatal("tcp_recv pcb is nil")
 	}
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
@@ -76,10 +78,11 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	handlerErr := conn.(tun2socks.Connection).Receive(buf)
 
 	if handlerErr != nil {
-		log.Printf("handle data failed: %v", handlerErr)
+		log.Printf("receive data failed: %v", handlerErr)
 		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}
+
 	return C.ERR_OK
 }
 
