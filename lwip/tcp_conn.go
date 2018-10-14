@@ -101,6 +101,10 @@ func (conn *tcpConn) LocalAddr() net.Addr {
 }
 
 func (conn *tcpConn) Receive(data []byte) error {
+	if conn.isClosing() {
+		return errors.New("conn is closing")
+	}
+
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
@@ -153,6 +157,10 @@ func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
+	if conn.isClosing() {
+		return 0, errors.New("conn is closing")
+	}
+
 	written, err := conn.tcpWrite(data)
 	if err != nil {
 		return 0, err
@@ -181,15 +189,9 @@ func (conn *tcpConn) isClosing() bool {
 	return conn.closing
 }
 
-func (conn *tcpConn) localWriteChLen() int {
-	conn.localLock.RLock()
-	defer conn.localLock.RUnlock()
-	return len(conn.localWriteCh)
-}
-
 func (conn *tcpConn) CheckState() {
 	// Still have data to send
-	if conn.localWriteChLen() > 0 {
+	if len(conn.localWriteCh) > 0 {
 		go conn.tryWriteLocal()
 		// Return and wait for the Sent() callback to be called, and then check again.
 		return
