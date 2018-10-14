@@ -163,22 +163,30 @@ func (conn *tcpConn) writeLocal() error {
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
-	lwipMutex.Lock()
-	// enqueue data
-	err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
-	lwipMutex.Unlock()
-	if err == C.ERR_MEM {
+	var err C.err_t
+	var written = false
+
+	if len(data) <= int(conn.pcb.snd_buf) {
+		lwipMutex.Lock()
+		// enqueue data
+		err = C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
+		lwipMutex.Unlock()
+
+		if err == C.ERR_OK {
+			written = true
+		} else if err != C.ERR_MEM {
+			return 0, errors.New(fmt.Sprintf("lwip tcp_write failed with error code: %v", int(err)))
+		}
+	}
+
+	if !written {
 		conn.localLock.Lock()
-		// Queue is full, buffer the data.
+		// Queue is full and data are not written yet, buffer the data.
 		_, err := conn.localBuffer.ReadFrom(bytes.NewReader(data))
 		conn.localLock.Unlock()
 		if err != nil {
 			return 0, errors.New("write local buffer failed")
 		}
-	}
-
-	if err != C.ERR_OK {
-		return 0, errors.New(fmt.Sprintf("lwip tcp_write failed with error code: %v", int(err)))
 	}
 
 	// Try to send pending data if any, and call tcp_output().
