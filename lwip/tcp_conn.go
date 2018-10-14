@@ -145,7 +145,6 @@ func (conn *tcpConn) writeLocal() error {
 			err := C.tcp_write(conn.pcb, unsafe.Pointer(&(conn.localBuffer.Bytes()[offset])), C.u16_t(sendSize), C.TCP_WRITE_FLAG_COPY)
 			if err == C.ERR_OK {
 				offset += sendSize
-				continue
 			} else {
 				conn.localBuffer = bytes.NewBuffer(conn.localBuffer.Bytes()[offset:])
 				break
@@ -162,21 +161,26 @@ func (conn *tcpConn) writeLocal() error {
 	return nil
 }
 
-func (conn *tcpConn) Write(data []byte) (int, error) {
-	var err C.err_t
-	var written = false
+func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
+	lwipMutex.Lock()
+	defer lwipMutex.Unlock()
 
 	if len(data) <= int(conn.pcb.snd_buf) {
-		lwipMutex.Lock()
 		// enqueue data
-		err = C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
-		lwipMutex.Unlock()
-
+		err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
 		if err == C.ERR_OK {
-			written = true
+			return true, nil
 		} else if err != C.ERR_MEM {
-			return 0, errors.New(fmt.Sprintf("lwip tcp_write failed with error code: %v", int(err)))
+			return false, errors.New(fmt.Sprintf("lwip tcp_write failed with error code: %v", int(err)))
 		}
+	}
+	return false, nil
+}
+
+func (conn *tcpConn) Write(data []byte) (int, error) {
+	written, err := conn.tcpWrite(data)
+	if err != nil {
+		return 0, err
 	}
 
 	if !written {
