@@ -39,15 +39,10 @@ func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration) tu
 }
 
 func (h *udpHandler) handleTCP(conn tun2socks.Connection, c net.Conn) {
-	var buf = make([]byte, 1024)
-	for {
-		c.SetDeadline(time.Time{})
-		_, err := c.Read(buf)
-		if err != nil {
-			h.Close(conn)
-			return
-		}
-	}
+	var buf = make([]byte, 1)
+	c.SetDeadline(time.Time{})
+	c.Read(buf)
+	h.Close(conn)
 }
 
 func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.Conn) {
