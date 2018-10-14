@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// Setup TCP/IP stack.
-	lwip.Setup()
+	lwipStack := lwip.NewLWIPStack()
 
 	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
@@ -97,13 +97,13 @@ func main() {
 				copy(payload, buf[:n])
 				go func(data []byte) {
 					time.Sleep(time.Duration(*delayICMP) * time.Millisecond)
-					err = lwip.Input(data)
+					_, err = lwipStack.Write(data)
 					if err != nil {
 						log.Fatal("failed to input data to the stack: %v", err)
 					}
 				}(payload)
 			} else {
-				err = lwip.Input(buf[:n])
+				_, err = lwipStack.Write(buf[:n])
 				if err != nil {
 					log.Fatal("failed to input data to the stack: %v", err)
 				}

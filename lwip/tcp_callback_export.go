@@ -66,11 +66,11 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	}
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
-	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
 	if p.tot_len != p.len {
-		log.Printf("p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
+		log.Fatal("p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
 	}
 
+	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
 	handlerErr := conn.(tun2socks.Connection).Receive(buf)
 

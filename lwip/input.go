@@ -17,17 +17,11 @@ import (
 	"unsafe"
 )
 
-func Input(pkt []byte) error {
-	buf := C.pbuf_alloc(C.PBUF_RAW, C.u16_t(len(pkt)), C.PBUF_RAM)
-	C.pbuf_take(buf, unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)))
-
-	// buf := C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_ROM)
-
-	// buf will be freed by lwip.
+func Input(pkt []byte) (int, error) {
+	buf := C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_ROM)
 	lwipMutex.Lock()
 	C.input(buf)
 	C.sys_check_timeouts()
 	lwipMutex.Unlock()
-
-	return nil
+	return len(pkt), nil
 }

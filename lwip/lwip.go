@@ -11,17 +11,19 @@ import (
 	"log"
 	"sync"
 	"unsafe"
+
+	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 // lwIP runs in a single thread, locking is needed in Go runtime.
 var lwipMutex = &sync.Mutex{}
 
-var listenTCPPCB *C.struct_tcp_pcb
-var listenUDPPCB *C.struct_udp_pcb
+type lwipStack struct {
+	tpcb *C.struct_tcp_pcb
+	upcb *C.struct_udp_pcb
+}
 
-func Setup() {
-	C.lwip_init()
-
+func NewLWIPStack() tun2socks.LWIPStack {
 	tcpPCB := C.tcp_new()
 	if tcpPCB == nil {
 		panic("tcp_new return nil")
@@ -49,8 +51,6 @@ func Setup() {
 	// C.tcp_accept(tcpPCB, TCPAcceptFn)
 	SetTCPAcceptCallback(tcpPCB)
 
-	listenTCPPCB = tcpPCB
-
 	udpPCB := C.udp_new()
 	if udpPCB == nil {
 		panic("could not allocate udp pcb")
@@ -62,5 +62,17 @@ func Setup() {
 	}
 
 	SetUDPRecvCallback(udpPCB, nil)
-	listenUDPPCB = udpPCB
+
+	return &lwipStack{
+		tpcb: tcpPCB,
+		upcb: udpPCB,
+	}
+}
+
+func (s *lwipStack) Write(data []byte) (int, error) {
+	return Input(data)
+}
+
+func init() {
+	C.lwip_init()
 }
