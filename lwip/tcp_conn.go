@@ -30,7 +30,6 @@ type tcpConn struct {
 	connKeyArg unsafe.Pointer
 	connKey    uint32
 	closing    bool
-	localLock  sync.RWMutex
 
 	// Data from remote not yet write to local will buffer into this channel.
 	localWriteCh chan []byte
