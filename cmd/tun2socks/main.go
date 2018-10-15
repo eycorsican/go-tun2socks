@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	v "github.com/eycorsican/go-tun2socks/proxy/v2ray"
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
 	"github.com/eycorsican/go-tun2socks/lwip"
@@ -53,12 +55,13 @@ func main() {
 	tunGw := flag.String("tunGw", "240.0.0.1", "TUN interface gateway")
 	tunMask := flag.String("tunMask", "255.255.255.0", "TUN interface netmask")
 	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface. (Only take effect on Windows)")
-	proxyType := flag.String("proxyType", "socks", "Proxy handler type: socks, shadowsocks")
-	proxyServer := flag.String("proxyServer", "1.1.1.1:1087", "Proxy server address")
+	proxyType := flag.String("proxyType", "socks", "Proxy handler type: socks, shadowsocks, v2ray")
+	vconfig := flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")
+	proxyServer := flag.String("proxyServer", "1.2.3.4:1087", "Proxy server address (host:port) for socks and Shadowsocks proxies")
 	proxyCipher := flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 	delayICMP := flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
-	udpTimeout := flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connection")
+	udpTimeout := flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in socks and Shadowsocks")
 
 	flag.Parse()
 
@@ -97,6 +100,15 @@ func main() {
 		log.Printf("creat Shadowsocks handler: %v:%v@%v:%v", *proxyCipher, *proxyPassword, proxyAddr, proxyPort)
 		lwip.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
 		lwip.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword, *udpTimeout))
+		break
+	case "v2ray":
+		configBytes, err := ioutil.ReadFile(*vconfig)
+		if err != nil {
+			log.Fatal("invalid vconfig file")
+		}
+		vhandler := v.NewHandler("json", configBytes)
+		lwip.RegisterTCPConnectionHandler(vhandler)
+		lwip.RegisterUDPConnectionHandler(vhandler)
 		break
 	default:
 		log.Fatal("unsupported proxy type")
