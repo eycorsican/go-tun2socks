@@ -132,10 +132,13 @@ Loop:
 
 	// Actually send data.
 	lwipMutex.Lock()
+	if conn.pcb == nil {
+		log.Fatal("tcp_output nil pcb")
+	}
 	err := C.tcp_output(conn.pcb)
 	lwipMutex.Unlock()
 	if err != C.ERR_OK {
-		log.Fatal("tcp_output error with lwip error code: %v", int(err))
+		log.Printf("tcp_output error with lwip error code: %v", int(err))
 	}
 }
 
