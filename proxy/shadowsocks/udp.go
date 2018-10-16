@@ -82,6 +82,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 			}
 			if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
 				h.dnsCache.Store(buf[int(len(addr)):n])
+				return // DNS response
 			}
 		}
 	}

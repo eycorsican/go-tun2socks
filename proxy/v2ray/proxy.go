@@ -61,6 +61,7 @@ func (h *handler) fetchInput(conn tun2socks.Connection) {
 				return
 			}
 			h.dnsCache.Store(buf[:n])
+			return // DNS responses
 		}
 	} else {
 		_, err := io.Copy(conn, c.conn)
@@ -120,6 +121,7 @@ func (h *handler) DidReceive(conn tun2socks.Connection, data []byte) error {
 						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
 					}
 					h.Close(conn)
+					conn.Close() // also close tun2socks connection here
 					return nil
 				}
 			}
