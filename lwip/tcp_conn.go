@@ -252,6 +252,7 @@ func (conn *tcpConn) Release() {
 		FreeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
 	}
+	log.Printf("ended TCP connection %v <-> %v", conn.LocalAddr(), conn.RemoteAddr())
 }
 func (conn *tcpConn) Poll() {
 	conn.CheckState()
