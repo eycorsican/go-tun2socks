@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -79,7 +80,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 			if err != nil {
 				log.Fatal("impossible error")
 			}
-			if port == "53" {
+			if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
 				h.dnsCache.Store(buf[int(len(addr)):n])
 			}
 		}
@@ -112,7 +113,7 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		if err != nil {
 			log.Fatal("impossible error")
 		}
-		if port == "53" {
+		if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
 			if answer := h.dnsCache.Query(data); answer != nil {
 				var buf [1024]byte
 				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {

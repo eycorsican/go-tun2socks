@@ -31,7 +31,7 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 		conn.Close() // also close tun2socks connection here
 	}()
 
-	_, err := io.Copy(conn.(io.Writer), input)
+	_, err := io.Copy(conn, input)
 	if err != nil {
 		log.Printf("fetch input failed: %v", err)
 	}

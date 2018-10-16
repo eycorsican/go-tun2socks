@@ -10,6 +10,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+const COMMON_DNS_PORT = 53
+
 type dnsCacheEntry struct {
 	msg *dns.Msg
 	exp time.Time
@@ -22,13 +24,36 @@ type DNSCache struct {
 }
 
 func NewDNSCache() *DNSCache {
-	return &DNSCache{storage: make(map[string]*dnsCacheEntry)}
+	cache := &DNSCache{storage: make(map[string]*dnsCacheEntry)}
+	go cache.cleanUp()
+	return cache
 }
 
 func packUint16(i uint16) []byte { return []byte{byte(i >> 8), byte(i)} }
 
 func cacheKey(q dns.Question) string {
 	return string(append([]byte(q.Name), packUint16(q.Qtype)...))
+}
+
+func (c *DNSCache) cleanUp() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			c.mutex.Lock()
+			log.Printf("cleaning up dns cache, %v entries", len(c.storage))
+			newStorage := make(map[string]*dnsCacheEntry)
+			for key, entry := range c.storage {
+				if time.Now().Before(entry.exp) {
+					newStorage[key] = entry
+				}
+			}
+			c.storage = newStorage
+			log.Printf("cleanup done, remaining %v entries", len(c.storage))
+			c.mutex.Unlock()
+		}
+	}
 }
 
 func (c *DNSCache) Query(payload []byte) *dns.Msg {
