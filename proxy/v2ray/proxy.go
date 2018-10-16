@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	vcore "v2ray.com/core"
+	"v2ray.com/core/app/proxyman"
 	vnet "v2ray.com/core/common/net"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
@@ -18,6 +19,7 @@ import (
 type handler struct {
 	sync.Mutex
 
+	ctx   context.Context
 	v     *vcore.Instance
 	conns map[tun2socks.Connection]net.Conn
 }
@@ -34,20 +36,29 @@ func (h *handler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 	}
 }
 
-func NewHandler(configFormat string, configBytes []byte) tun2socks.ConnectionHandler {
+func NewHandler(configFormat string, configBytes []byte, sniffingType []string) tun2socks.ConnectionHandler {
 	v, err := vcore.StartInstance(configFormat, configBytes)
 	if err != nil {
 		log.Fatal("start V instance failed: %v", err)
 	}
+
+	sniffingConfig := &proxyman.SniffingConfig{
+		Enabled:             true,
+		DestinationOverride: sniffingType,
+	}
+	if len(sniffingType) == 0 {
+		sniffingConfig.Enabled = false
+	}
+
 	return &handler{
+		ctx:   proxyman.ContextWithSniffingConfig(context.Background(), sniffingConfig),
 		v:     v,
 		conns: make(map[tun2socks.Connection]net.Conn, 16),
 	}
 }
 
 func (h *handler) Connect(conn tun2socks.Connection, target net.Addr) error {
-	ctx := context.Background()
-	c, err := vcore.Dial(ctx, h.v, vnet.DestinationFromAddr(target))
+	c, err := vcore.Dial(h.ctx, h.v, vnet.DestinationFromAddr(target))
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial V proxy connection failed: %v", err))
 	}

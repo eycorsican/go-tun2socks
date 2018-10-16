@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/eycorsican/go-tun2socks/cmd/tun2socks/v2ray"
 	v "github.com/eycorsican/go-tun2socks/proxy/v2ray"
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
@@ -57,6 +58,7 @@ func main() {
 	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface. (Only take effect on Windows)")
 	proxyType := flag.String("proxyType", "socks", "Proxy handler type: socks, shadowsocks, v2ray")
 	vconfig := flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")
+	sniffingType := flag.String("sniffingType", "http,tls", "Enable domain sniffing for specific kind of traffic in v2ray")
 	proxyServer := flag.String("proxyServer", "1.2.3.4:1087", "Proxy server address (host:port) for socks and Shadowsocks proxies")
 	proxyCipher := flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
@@ -106,7 +108,14 @@ func main() {
 		if err != nil {
 			log.Fatal("invalid vconfig file")
 		}
-		vhandler := v.NewHandler("json", configBytes)
+		var validSniffings []string
+		sniffings := strings.Split(*sniffingType, ",")
+		for _, s := range sniffings {
+			if s == "http" || s == "tls" {
+				validSniffings = append(validSniffings, s)
+			}
+		}
+		vhandler := v.NewHandler("json", configBytes, validSniffings)
 		lwip.RegisterTCPConnectionHandler(vhandler)
 		lwip.RegisterUDPConnectionHandler(vhandler)
 		break
