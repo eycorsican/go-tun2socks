@@ -2,7 +2,6 @@ package lwip
 
 /*
 #cgo CFLAGS: -I./src/include
-#include "lwip/init.h"
 #include "lwip/tcp.h"
 #include "lwip/udp.h"
 */
@@ -76,5 +75,5 @@ func (s *lwipStack) Write(data []byte) (int, error) {
 }
 
 func init() {
-	C.lwip_init()
+	lwipInit()
 }
