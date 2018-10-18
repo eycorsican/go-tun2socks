@@ -10,6 +10,7 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -250,6 +251,11 @@ func OpenTunDevice(name, addr, gw, mask string, dns []string) (io.ReadWriteClose
 }
 
 type winTapDev struct {
+	// TODO Not sure if a read lock is needed.
+	readLock sync.Mutex
+	// Write is not allowed concurrent accessing.
+	writeLock sync.Mutex
+
 	fd          windows.Handle
 	addr        string
 	addrIP      net.IP
@@ -286,6 +292,9 @@ func newWinTapDev(fd windows.Handle, addr string, gw string) *winTapDev {
 }
 
 func (dev *winTapDev) Read(data []byte) (int, error) {
+	dev.readLock.Lock()
+	defer dev.readLock.Unlock()
+
 	for {
 		var done uint32
 		var nr int
@@ -329,6 +338,9 @@ func (dev *winTapDev) Read(data []byte) (int, error) {
 }
 
 func (dev *winTapDev) Write(data []byte) (int, error) {
+	dev.writeLock.Lock()
+	defer dev.writeLock.Unlock()
+
 	var done uint32
 	var nw int
 
