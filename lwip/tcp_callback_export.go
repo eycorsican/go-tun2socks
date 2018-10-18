@@ -7,6 +7,7 @@ package lwip
 import "C"
 import (
 	"errors"
+	"fmt"
 	"log"
 	"unsafe"
 
@@ -103,11 +104,11 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
 		switch err {
 		case C.ERR_ABRT:
-			conn.(tun2socks.Connection).Err(errors.New("error abort"))
+			conn.(tun2socks.Connection).Err(errors.New("connection aborted"))
 		case C.ERR_RST:
-			conn.(tun2socks.Connection).Err(errors.New("error reset"))
+			conn.(tun2socks.Connection).Err(errors.New("connection reseted"))
 		default:
-			conn.(tun2socks.Connection).Err(errors.New("error other"))
+			conn.(tun2socks.Connection).Err(errors.New(fmt.Sprintf("lwip error code %v", int(err))))
 		}
 	}
 }

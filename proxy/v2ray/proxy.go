@@ -12,10 +12,12 @@ import (
 	vcore "v2ray.com/core"
 	"v2ray.com/core/app/proxyman"
 	vnet "v2ray.com/core/common/net"
+	"v2ray.com/core/common/session"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
 	"github.com/eycorsican/go-tun2socks/lwip"
 	"github.com/eycorsican/go-tun2socks/proxy"
+	"github.com/eycorsican/go-tun2socks/route"
 )
 
 type connEntry struct {
@@ -28,6 +30,7 @@ type handler struct {
 
 	ctx      context.Context
 	v        *vcore.Instance
+	gateway  string
 	conns    map[tun2socks.Connection]*connEntry
 	dnsCache *proxy.DNSCache
 }
@@ -71,7 +74,7 @@ func (h *handler) fetchInput(conn tun2socks.Connection) {
 	}
 }
 
-func NewHandler(configFormat string, configBytes []byte, sniffingType []string) tun2socks.ConnectionHandler {
+func NewHandler(configFormat string, configBytes []byte, sniffingType []string, gateway string) tun2socks.ConnectionHandler {
 	v, err := vcore.StartInstance(configFormat, configBytes)
 	if err != nil {
 		log.Fatal("start V instance failed: %v", err)
@@ -88,6 +91,7 @@ func NewHandler(configFormat string, configBytes []byte, sniffingType []string) 
 	return &handler{
 		ctx:      proxyman.ContextWithSniffingConfig(context.Background(), sniffingConfig),
 		v:        v,
+		gateway:  gateway,
 		conns:    make(map[tun2socks.Connection]*connEntry, 16),
 		dnsCache: proxy.NewDNSCache(),
 	}
@@ -95,7 +99,25 @@ func NewHandler(configFormat string, configBytes []byte, sniffingType []string) 
 
 func (h *handler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	dest := vnet.DestinationFromAddr(target)
-	c, err := vcore.Dial(h.ctx, h.v, dest)
+
+	ctx := session.ContextWithOutbound(h.ctx, &session.Outbound{
+		Target: dest,
+	})
+
+	tag, err := h.v.Router().PickRoute(ctx)
+	if err == nil && tag == "direct" && h.gateway != "" {
+		err := route.AddRoute(dest.Address.String(), "255.255.255.255", h.gateway)
+		if err == nil {
+			log.Printf("added a direct route for %v", dest)
+		} else {
+			log.Printf("adding route for %v failed: %v", dest, err)
+		}
+	}
+
+	sid := session.NewID()
+	ctx = session.ContextWithID(ctx, sid)
+
+	c, err := vcore.Dial(ctx, h.v, dest)
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial V proxy connection failed: %v", err))
 	}

@@ -232,16 +232,20 @@ func (conn *tcpConn) _close() error {
 }
 
 func (conn *tcpConn) Abort() {
+	log.Printf("aborted TCP connection %v <-> %v", conn.LocalAddr(), conn.RemoteAddr())
 	conn.Release()
 	C.tcp_abort(conn.pcb)
 }
 
+// The corresponding pcb is already freed when this callback is called
 func (conn *tcpConn) Err(err error) {
+	log.Printf("error on TCP connection %v <-> %v: %v", conn.LocalAddr(), conn.RemoteAddr(), err)
 	conn.Release()
 	conn.handler.DidClose(conn)
 }
 
 func (conn *tcpConn) LocalDidClose() {
+	log.Printf("local close TCP connection %v <-> %v", conn.LocalAddr(), conn.RemoteAddr())
 	conn.handler.LocalDidClose(conn)
 	conn.Close()      // flag closing
 	conn.CheckState() // check pending data
