@@ -18,12 +18,6 @@ type ConnectionHandler interface {
 	// DidClose will be called when the connection has been closed.
 	DidClose(conn Connection)
 
-	// DidAbort will be called when the connection has been aborted.
-	DidAbort(conn Connection)
-
-	// DidReset will be called when the connection has been reseted.
-	DidReset(conn Connection)
-
 	// LocalDidClose will be called when local client has close the connection.
 	LocalDidClose(conn Connection)
 }

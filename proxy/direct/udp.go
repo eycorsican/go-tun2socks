@@ -2,6 +2,7 @@ package direct
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -79,7 +80,7 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		}
 		return nil
 	} else {
-		return errors.New("udp connection does not exists")
+		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 
@@ -88,14 +89,6 @@ func (h *udpHandler) DidSend(conn tun2socks.Connection, len uint16) {
 }
 
 func (h *udpHandler) DidClose(conn tun2socks.Connection) {
-	// unused
-}
-
-func (h *udpHandler) DidAbort(conn tun2socks.Connection) {
-	// unused
-}
-
-func (h *udpHandler) DidReset(conn tun2socks.Connection) {
 	// unused
 }
 

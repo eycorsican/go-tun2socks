@@ -20,7 +20,7 @@ type Connection interface {
 	Write(data []byte) (int, error)
 
 	// Sent will be called when sent data has been acknowledged by clients (TCP only).
-	Sent(len uint16)
+	Sent(len uint16) error
 
 	// Close closes the connection (TCP only).
 	Close() error
@@ -32,8 +32,8 @@ type Connection interface {
 	Err(err error)
 
 	// LocalDidClose will be called when local client has close the connection (TCP only).
-	LocalDidClose()
+	LocalDidClose() error
 
 	// Poll will be periodically called by timers (TCP only).
-	Poll()
+	Poll() error
 }

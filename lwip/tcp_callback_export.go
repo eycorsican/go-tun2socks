@@ -28,11 +28,11 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 
 	conn, err2 := NewTCPConnection(newpcb, tcpConnectionHandler)
 	if err2 != nil {
-		log.Printf("create TCP connection failed: %v", err2)
+		log.Printf("failed to create TCP connection %v:%v->%v:%v: %v", GetIP4Addr(newpcb.local_ip), uint16(newpcb.local_port), GetIP4Addr(newpcb.remote_ip), uint16(newpcb.remote_port), err2)
 		return C.ERR_OK
 	}
 
-	log.Printf("created new TCP connection %v <-> %v", conn.LocalAddr(), conn.RemoteAddr())
+	log.Printf("created new TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 
 	return C.ERR_OK
 }
@@ -61,8 +61,12 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 
 	if p == nil {
 		// The connection has been closed.
-		conn.(tun2socks.Connection).LocalDidClose()
-		return C.ERR_OK
+		err := conn.(tun2socks.Connection).LocalDidClose()
+		if err.(*lwipError).Code == LWIP_ERR_ABRT {
+			return C.ERR_ABRT
+		} else if err.(*lwipError).Code == LWIP_ERR_OK {
+			return C.ERR_OK
+		}
 	}
 
 	if tpcb == nil {
@@ -90,8 +94,12 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 //export TCPSentFn
 func TCPSentFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, len C.u16_t) C.err_t {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
-		conn.(tun2socks.Connection).Sent(uint16(len))
-		return C.ERR_OK
+		err := conn.(tun2socks.Connection).Sent(uint16(len))
+		if err.(*lwipError).Code == LWIP_ERR_ABRT {
+			return C.ERR_ABRT
+		} else {
+			return C.ERR_OK
+		}
 	} else {
 		log.Printf("connection does not exists")
 		C.tcp_abort(tpcb)
@@ -104,8 +112,10 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
 		switch err {
 		case C.ERR_ABRT:
+			// Aborted through tcp_abort or by a TCP timer
 			conn.(tun2socks.Connection).Err(errors.New("connection aborted"))
 		case C.ERR_RST:
+			// The connection was reset by the remote host
 			conn.(tun2socks.Connection).Err(errors.New("connection reseted"))
 		default:
 			conn.(tun2socks.Connection).Err(errors.New(fmt.Sprintf("lwip error code %v", int(err))))
@@ -116,7 +126,12 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 //export TCPPollFn
 func TCPPollFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb) C.err_t {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
-		conn.(tun2socks.Connection).Poll()
+		err := conn.(tun2socks.Connection).Poll()
+		if err.(*lwipError).Code == LWIP_ERR_ABRT {
+			return C.ERR_ABRT
+		} else if err.(*lwipError).Code == LWIP_ERR_OK {
+			return C.ERR_OK
+		}
 	}
 	return C.ERR_OK
 }

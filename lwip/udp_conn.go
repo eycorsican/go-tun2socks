@@ -67,8 +67,9 @@ func (conn *udpConn) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (conn *udpConn) Sent(len uint16) {
+func (conn *udpConn) Sent(len uint16) error {
 	// unused
+	return nil
 }
 
 func (conn *udpConn) Close() error {
@@ -77,7 +78,7 @@ func (conn *udpConn) Close() error {
 		dst: conn.RemoteAddr().String(),
 	}
 	udpConns.Delete(connId)
-	log.Printf("ended UDP connection %v <-> %v", conn.LocalAddr(), conn.RemoteAddr())
+	log.Printf("ended UDP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	return nil
 }
 
@@ -89,10 +90,12 @@ func (conn *udpConn) Abort() {
 	// unused
 }
 
-func (conn *udpConn) LocalDidClose() {
+func (conn *udpConn) LocalDidClose() error {
 	// unused
+	return nil
 }
 
-func (conn *udpConn) Poll() {
+func (conn *udpConn) Poll() error {
 	// unused
+	return nil
 }

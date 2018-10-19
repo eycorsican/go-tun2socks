@@ -110,7 +110,7 @@ func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
+		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 
@@ -118,14 +118,6 @@ func (h *tcpHandler) DidSend(conn tun2socks.Connection, len uint16) {
 }
 
 func (h *tcpHandler) DidClose(conn tun2socks.Connection) {
-	h.Close(conn)
-}
-
-func (h *tcpHandler) DidAbort(conn tun2socks.Connection) {
-	h.Close(conn)
-}
-
-func (h *tcpHandler) DidReset(conn tun2socks.Connection) {
 	h.Close(conn)
 }
 

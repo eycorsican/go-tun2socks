@@ -172,7 +172,7 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
+		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 
@@ -181,14 +181,6 @@ func (h *udpHandler) DidSend(conn tun2socks.Connection, len uint16) {
 }
 
 func (h *udpHandler) DidClose(conn tun2socks.Connection) {
-	// unused
-}
-
-func (h *udpHandler) DidAbort(conn tun2socks.Connection) {
-	// unused
-}
-
-func (h *udpHandler) DidReset(conn tun2socks.Connection) {
 	// unused
 }
 

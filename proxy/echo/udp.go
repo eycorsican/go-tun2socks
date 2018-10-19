@@ -36,11 +36,5 @@ func (h *udpHandler) DidSend(conn tun2socks.Connection, len uint16) {
 func (h *udpHandler) DidClose(conn tun2socks.Connection) {
 }
 
-func (h *udpHandler) DidAbort(conn tun2socks.Connection) {
-}
-
-func (h *udpHandler) DidReset(conn tun2socks.Connection) {
-}
-
 func (h *udpHandler) LocalDidClose(conn tun2socks.Connection) {
 }

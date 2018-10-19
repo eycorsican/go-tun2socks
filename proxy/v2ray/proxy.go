@@ -106,9 +106,12 @@ func (h *handler) Connect(conn tun2socks.Connection, target net.Addr) error {
 
 	tag, err := h.v.Router().PickRoute(ctx)
 	if err == nil && tag == "direct" && h.gateway != "" {
+		// TODO Doing this before packets input to lwip? How about performance concerns?
 		err := route.AddRoute(dest.Address.String(), "255.255.255.255", h.gateway)
 		if err == nil {
 			log.Printf("added a direct route for %v", dest)
+			conn.Abort()
+			return errors.New("need re-routing, aborted")
 		} else {
 			log.Printf("adding route for %v failed: %v", dest, err)
 		}
@@ -157,7 +160,7 @@ func (h *handler) DidReceive(conn tun2socks.Connection, data []byte) error {
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection does not exists: %v <-> %v", conn.LocalAddr(), conn.RemoteAddr()))
+		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 }
 
@@ -166,14 +169,6 @@ func (h *handler) DidSend(conn tun2socks.Connection, len uint16) {
 }
 
 func (h *handler) DidClose(conn tun2socks.Connection) {
-	h.Close(conn)
-}
-
-func (h *handler) DidAbort(conn tun2socks.Connection) {
-	h.Close(conn)
-}
-
-func (h *handler) DidReset(conn tun2socks.Connection) {
 	h.Close(conn)
 }
 

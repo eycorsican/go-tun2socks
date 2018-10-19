@@ -36,11 +36,5 @@ func (h *tcpHandler) DidSend(conn tun2socks.Connection, len uint16) {
 func (h *tcpHandler) DidClose(conn tun2socks.Connection) {
 }
 
-func (h *tcpHandler) DidAbort(conn tun2socks.Connection) {
-}
-
-func (h *tcpHandler) DidReset(conn tun2socks.Connection) {
-}
-
 func (h *tcpHandler) LocalDidClose(conn tun2socks.Connection) {
 }

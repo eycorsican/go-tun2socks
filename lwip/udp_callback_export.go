@@ -43,11 +43,11 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			port,
 			destPort)
 		if err != nil {
-			log.Printf("failed to create UDP connection: %v", err)
+			log.Printf("failed to create UDP connection %v:%v->%v:%v: %v", GetIP4Addr(*addr), uint16(port), GetIP4Addr(*destAddr), uint16(destPort), err)
 			return
 		}
 		udpConns.Store(connId, conn)
-		log.Printf("created new UDP connection %v <-> %v", conn.(tun2socks.Connection).LocalAddr(), conn.(tun2socks.Connection).RemoteAddr())
+		log.Printf("created new UDP connection %v->%v", conn.(tun2socks.Connection).LocalAddr(), conn.(tun2socks.Connection).RemoteAddr())
 	}
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
