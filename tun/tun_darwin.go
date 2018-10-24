@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -26,11 +27,17 @@ type sockaddrCtl struct {
 type utunDev struct {
 	f *os.File
 
+	readLock  sync.Mutex
+	writeLock sync.Mutex
+
 	rBuf [2048]byte
 	wBuf [2048]byte
 }
 
 func (dev *utunDev) Read(data []byte) (int, error) {
+	dev.readLock.Lock()
+	defer dev.readLock.Unlock()
+
 	n, e := dev.f.Read(dev.rBuf[:])
 	if n > 0 {
 		copy(data, dev.rBuf[4:n])
@@ -41,6 +48,9 @@ func (dev *utunDev) Read(data []byte) (int, error) {
 
 // one packet, no more than MTU
 func (dev *utunDev) Write(data []byte) (int, error) {
+	dev.writeLock.Lock()
+	defer dev.writeLock.Unlock()
+
 	n := copy(dev.wBuf[4:], data)
 	return dev.f.Write(dev.wBuf[:n+4])
 }
