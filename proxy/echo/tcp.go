@@ -7,11 +7,33 @@ import (
 	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
+type connEntry struct {
+	data []byte
+	conn tun2socks.Connection
+}
+
 // An echo server, do nothing but echo back data to the sender.
-type tcpHandler struct{}
+type tcpHandler struct {
+	buf chan *connEntry
+}
 
 func NewTCPHandler() tun2socks.ConnectionHandler {
-	return &tcpHandler{}
+	handler := &tcpHandler{
+		buf: make(chan *connEntry, 1024),
+	}
+	go handler.echoBack()
+	return handler
+}
+
+func (h *tcpHandler) echoBack() {
+	for {
+		e := <-h.buf
+		_, err := e.conn.Write(e.data)
+		if err != nil {
+			log.Printf("failed to echo back data: %v", err)
+			e.conn.Close()
+		}
+	}
 }
 
 func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
@@ -19,14 +41,8 @@ func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 }
 
 func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
-	// Dispatch to another goroutine, otherwise will result in deadlock.
 	payload := append([]byte(nil), data...)
-	go func(b []byte) {
-		err := conn.Write(b)
-		if err != nil {
-			log.Printf("failed to echo back data: %v", err)
-		}
-	}(payload)
+	h.buf <- &connEntry{data: payload, conn: conn}
 	return nil
 }
 
