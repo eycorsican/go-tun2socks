@@ -6,6 +6,7 @@ package lwip
 */
 import "C"
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -31,9 +32,12 @@ type tcpConn struct {
 	connKey    uint32
 	closing    bool
 	aborting   bool
+	ctx        context.Context
+	cancel     context.CancelFunc
 
 	// Data from remote not yet write to local will buffer into this channel.
-	localWriteCh chan []byte
+	localWriteCh    chan []byte
+	localWriteSubCh chan []byte
 }
 
 func checkTCPConns() {
@@ -58,20 +62,25 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		return nil, errors.New("no registered TCP connection handlers found")
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	conn := &tcpConn{
 		pcb:     pcb,
 		handler: handler,
 		network: "tcp",
 		// FIXME: need to handle IPv6
-		remoteAddr:   GetIP4Addr(pcb.local_ip),
-		remotePort:   uint16(pcb.local_port),
-		localAddr:    GetIP4Addr(pcb.remote_ip),
-		localPort:    uint16(pcb.remote_port),
-		connKeyArg:   connKeyArg,
-		connKey:      connKey,
-		closing:      false,
-		aborting:     false,
-		localWriteCh: make(chan []byte, 64),
+		remoteAddr:      GetIP4Addr(pcb.local_ip),
+		remotePort:      uint16(pcb.local_port),
+		localAddr:       GetIP4Addr(pcb.remote_ip),
+		localPort:       uint16(pcb.remote_port),
+		connKeyArg:      connKeyArg,
+		connKey:         connKey,
+		closing:         false,
+		aborting:        false,
+		ctx:             ctx,
+		cancel:          cancel,
+		localWriteCh:    make(chan []byte, 64),
+		localWriteSubCh: make(chan []byte, 1),
 	}
 
 	// Associate conn with key and save to the global map.
@@ -117,14 +126,36 @@ func (conn *tcpConn) Receive(data []byte) error {
 }
 
 func (conn *tcpConn) tryWriteLocal() {
+	lwipMutex.Lock()
+	defer lwipMutex.Unlock()
+
 Loop:
 	for {
+		// Using 2 select to ensure data in localWriteSubCh will be drained first.
 		select {
+		case data := <-conn.localWriteSubCh:
+			written, err := conn.tcpWrite(data)
+			if !written || err != nil {
+				// Data not written, buffer again.
+				conn.localWriteSubCh <- data
+				break Loop
+			}
+		default:
+		}
+
+		select {
+		case data := <-conn.localWriteSubCh:
+			written, err := conn.tcpWrite(data)
+			if !written || err != nil {
+				// Data not written, buffer again.
+				conn.localWriteSubCh <- data
+				break Loop
+			}
 		case data := <-conn.localWriteCh:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
 				// Data not written, buffer again.
-				conn.localWriteCh <- data
+				conn.localWriteSubCh <- data
 				break Loop
 			}
 		default:
@@ -133,21 +164,17 @@ Loop:
 	}
 
 	// Actually send data.
-	lwipMutex.Lock()
 	if conn.pcb == nil {
 		log.Fatal("tcp_output nil pcb")
 	}
 	err := C.tcp_output(conn.pcb)
-	lwipMutex.Unlock()
 	if err != C.ERR_OK {
 		log.Printf("tcp_output error with lwip error code: %v", int(err))
 	}
 }
 
+// While calling this function, the lwIP thread is assumed to be already locked by the caller.
 func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
-	lwipMutex.Lock()
-	defer lwipMutex.Unlock()
-
 	if len(data) <= int(conn.pcb.snd_buf) {
 		// enqueue data
 		err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
@@ -161,18 +188,14 @@ func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
-	// if conn.isClosing() {
-	// 	return 0, errors.New(fmt.Sprintf("conn %v <-> %v is closing", conn.LocalAddr(), conn.RemoteAddr()))
-	// }
-
-	written, err := conn.tcpWrite(data)
-	if err != nil {
-		return 0, err
+	if conn.isClosing() {
+		return 0, errors.New(fmt.Sprintf("conn %v <-> %v is closing", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 
-	if !written {
-		// Not written yet, buffer the data.
-		conn.localWriteCh <- data
+	select {
+	case conn.localWriteCh <- append([]byte(nil), data...):
+	case <-conn.ctx.Done():
+		return 0, conn.ctx.Err()
 	}
 
 	// Try to send pending data if any, and call tcp_output().
@@ -240,6 +263,8 @@ func (conn *tcpConn) closeInternal() error {
 	C.tcp_err(conn.pcb, nil)
 
 	conn.Release()
+
+	conn.cancel()
 
 	err := C.tcp_close(conn.pcb)
 	if err == C.ERR_OK {
