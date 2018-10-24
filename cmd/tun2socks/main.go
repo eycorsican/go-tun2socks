@@ -14,6 +14,7 @@ import (
 	"time"
 
 	_ "github.com/eycorsican/go-tun2socks/cmd/tun2socks/features"
+	"github.com/eycorsican/go-tun2socks/proxy/echo"
 	v2 "github.com/eycorsican/go-tun2socks/proxy/v2ray"
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
@@ -92,6 +93,10 @@ func main() {
 
 	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
+	case "echo":
+		lwip.RegisterTCPConnectionHandler(echo.NewTCPHandler())
+		lwip.RegisterUDPConnectionHandler(echo.NewUDPHandler())
+		break
 	case "socks":
 		lwip.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyAddr, proxyPort))
 		lwip.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyAddr, proxyPort, *udpTimeout))
