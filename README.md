@@ -104,7 +104,7 @@ The program will not create the TUN device for you on Linux. You need to create 
 
 ```sh
 ip tuntap add mode tun dev tun1
-ip addr add 240.0.0.2 dev tun1
+ip addr add 240.0.0.1 dev tun1
 ip link set dev tun1 up
 ```
 
@@ -133,7 +133,8 @@ To create a TUN device on Windows, you need [Tap-windows](https://openvpn.net/in
 Add our TUN interface as the default gateway:
 
 ```sh
-route add 0.0.0.0 mask 0.0.0.0 240.0.0.1 metric 6
+# Using 240.0.0.1 is not allowed on Windows, we use 10.0.0.1 instead
+route add 0.0.0.0 mask 0.0.0.0 10.0.0.1 metric 6
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
