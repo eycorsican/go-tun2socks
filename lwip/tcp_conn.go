@@ -21,19 +21,20 @@ import (
 type tcpConn struct {
 	sync.Mutex
 
-	pcb        *C.struct_tcp_pcb
-	handler    tun2socks.ConnectionHandler
-	network    string
-	remoteAddr string
-	remotePort uint16
-	localAddr  string
-	localPort  uint16
-	connKeyArg unsafe.Pointer
-	connKey    uint32
-	closing    bool
-	aborting   bool
-	ctx        context.Context
-	cancel     context.CancelFunc
+	pcb         *C.struct_tcp_pcb
+	handler     tun2socks.ConnectionHandler
+	network     string
+	remoteAddr  string
+	remotePort  uint16
+	localAddr   string
+	localPort   uint16
+	connKeyArg  unsafe.Pointer
+	connKey     uint32
+	closing     bool
+	localClosed bool
+	aborting    bool
+	ctx         context.Context
+	cancel      context.CancelFunc
 
 	// Data from remote not yet write to local will buffer into this channel.
 	localWriteCh    chan []byte
@@ -76,10 +77,11 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		connKeyArg:      connKeyArg,
 		connKey:         connKey,
 		closing:         false,
+		localClosed:     false,
 		aborting:        false,
 		ctx:             ctx,
 		cancel:          cancel,
-		localWriteCh:    make(chan []byte, 1),
+		localWriteCh:    make(chan []byte, 32),
 		localWriteSubCh: make(chan []byte, 1),
 	}
 
@@ -137,10 +139,11 @@ Loop:
 		case data := <-conn.localWriteSubCh:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
-				// Data not written, buffer again.
+				// TODO the check is for debug purpose, and should be removed later
 				if len(conn.localWriteSubCh) > 0 {
 					log.Fatal("send to non-empty sub chan")
 				}
+				// Data not written, buffer again.
 				conn.localWriteSubCh <- data
 				break Loop
 			}
@@ -151,20 +154,25 @@ Loop:
 		case data := <-conn.localWriteSubCh:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
-				// Data not written, buffer again.
+				// TODO the check is for debug purpose, and should be removed later
 				if len(conn.localWriteSubCh) > 0 {
 					log.Fatal("send to non-empty sub chan")
 				}
+				// Data not written, buffer again.
 				conn.localWriteSubCh <- data
 				break Loop
 			}
 		case data := <-conn.localWriteCh:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
-				// Data not written, buffer again.
+				// TODO the check is for debug purpose, and should be removed later
 				if len(conn.localWriteSubCh) > 0 {
 					log.Fatal("send to non-empty sub chan")
 				}
+				// If writing is not success, buffer to the sub channel, and next time
+				// we try to read from the sub channel first. Using a sub channel here
+				// because the data must be sent in correct order and we have no way
+				// to prepend data to the head of a channel.
 				conn.localWriteSubCh <- data
 				break Loop
 			}
@@ -173,10 +181,11 @@ Loop:
 		}
 	}
 
-	// Actually send data.
+	// TODO the check is for debug purpose, and should be removed later
 	if conn.pcb == nil {
 		log.Fatal("tcp_output nil pcb")
 	}
+	// Actually send data.
 	err := C.tcp_output(conn.pcb)
 	if err != C.ERR_OK {
 		log.Printf("tcp_output error with lwip error code: %v", int(err))
@@ -203,7 +212,7 @@ func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
-	if conn.isClosing() {
+	if conn.isLocalClosed() {
 		return 0, errors.New(fmt.Sprintf("conn %v <-> %v is closing", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 
@@ -257,6 +266,12 @@ func (conn *tcpConn) isAborting() bool {
 	return conn.aborting
 }
 
+func (conn *tcpConn) isLocalClosed() bool {
+	conn.Lock()
+	defer conn.Unlock()
+	return conn.localClosed
+}
+
 func (conn *tcpConn) hasPendingLocalData() bool {
 	if len(conn.localWriteCh) > 0 || len(conn.localWriteSubCh) > 0 {
 		return true
@@ -266,13 +281,13 @@ func (conn *tcpConn) hasPendingLocalData() bool {
 
 func (conn *tcpConn) CheckState() error {
 	// Still have data to send
-	if conn.hasPendingLocalData() {
+	if conn.hasPendingLocalData() && !conn.isLocalClosed() {
 		go conn.tryWriteLocal()
 		// Return and wait for the Sent() callback to be called, and then check again.
 		return NewLWIPError(LWIP_ERR_OK)
 	}
 
-	if conn.isClosing() {
+	if conn.isClosing() || conn.isLocalClosed() {
 		conn.closeInternal()
 	}
 
@@ -291,6 +306,14 @@ func (conn *tcpConn) Close() error {
 	// Close maybe called outside of lwIP thread, we should not call tcp_close() in this
 	// function, instead just make a flag to indicate we are closing the connection.
 	conn.closing = true
+	return nil
+}
+
+func (conn *tcpConn) setLocalClosed() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	conn.localClosed = true
 	return nil
 }
 
@@ -318,7 +341,7 @@ func (conn *tcpConn) closeInternal() error {
 }
 
 func (conn *tcpConn) abortInternal() {
-	log.Printf("aborted TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
+	log.Printf("abort TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	conn.Release()
 	C.tcp_abort(conn.pcb)
 }
@@ -334,13 +357,14 @@ func (conn *tcpConn) Abort() {
 func (conn *tcpConn) Err(err error) {
 	log.Printf("error on TCP connection %v->%v: %v", conn.LocalAddr(), conn.RemoteAddr(), err)
 	conn.Release()
+	conn.cancel()
 	conn.handler.DidClose(conn)
 }
 
 func (conn *tcpConn) LocalDidClose() error {
 	log.Printf("local close TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	conn.handler.LocalDidClose(conn)
-	conn.Close()             // flag closing
+	conn.setLocalClosed()    // flag closing
 	return conn.CheckState() // check pending data
 }
 
@@ -351,6 +375,7 @@ func (conn *tcpConn) Release() {
 	}
 	log.Printf("ended TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 }
+
 func (conn *tcpConn) Poll() error {
 	return conn.CheckState()
 }
