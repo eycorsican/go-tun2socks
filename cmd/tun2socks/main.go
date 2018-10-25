@@ -55,7 +55,7 @@ func main() {
 	tunName := flag.String("tunName", "tun1", "TUN interface name")
 	tunAddr := flag.String("tunAddr", "240.0.0.2", "TUN interface address")
 	tunGw := flag.String("tunGw", "240.0.0.1", "TUN interface gateway")
-	gateway := flag.String("gateway", "", "The gateway adrress of your network, it is used for dynamic routing")
+	gateway := flag.String("gateway", "", "The gateway adrress of your default network, set this to enable dynamic routing, and root/admin privileges may also required for using dynamic routing (V2Ray only)")
 	tunMask := flag.String("tunMask", "255.255.255.0", "TUN interface netmask")
 	dnsServer := flag.String("dnsServer", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface. (Only take effect on Windows)")
 	proxyType := flag.String("proxyType", "socks", "Proxy handler type: socks, shadowsocks, v2ray")
