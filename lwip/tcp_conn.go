@@ -79,7 +79,7 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 		aborting:        false,
 		ctx:             ctx,
 		cancel:          cancel,
-		localWriteCh:    make(chan []byte, 64),
+		localWriteCh:    make(chan []byte, 1),
 		localWriteSubCh: make(chan []byte, 1),
 	}
 
@@ -183,10 +183,15 @@ Loop:
 	}
 }
 
-// While calling this function, the lwIP thread is assumed to be already locked by the caller.
+// tcpWrite enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
+// but instead tells the caller that data is not successfully enqueued, and should try
+// again another time. By calling this function, the lwIP thread is assumed to be already
+// locked by the caller.
 func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
 	if len(data) <= int(conn.pcb.snd_buf) {
-		// enqueue data
+		// Enqueue data, data copy here! Copying is required because lwIP must keep the data until they
+		// are acknowledged (receiving ACK segments) by other hosts for retransmission purposes, it's
+		// not obvious how to implement zero-copy here.
 		err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
 		if err == C.ERR_OK {
 			return true, nil
@@ -202,10 +207,30 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 		return 0, errors.New(fmt.Sprintf("conn %v <-> %v is closing", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 
-	select {
-	case conn.localWriteCh <- append([]byte(nil), data...):
-	case <-conn.ctx.Done():
-		return 0, conn.ctx.Err()
+	var written = false
+	var err error
+
+	// If there isn't any pending data left, we can try to write the data first to avoid one copy,
+	// if there is pending data not yet sent, we must copy and buffer the data in order to maintain
+	// the transmission order.
+	if !conn.hasPendingLocalData() {
+		lwipMutex.Lock()
+		written, err = conn.tcpWrite(data)
+		lwipMutex.Unlock()
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	if !written {
+		select {
+		// Buffer the data here and try sending it later, one could set a smaller localWriteCh size
+		// to limit data copying times and memory usage, by sacrificing performance. But writing data
+		// to local is quite fast, thus it should be safe even has a size of 1 localWriteCh.
+		case conn.localWriteCh <- append([]byte(nil), data...): // data copy here!
+		case <-conn.ctx.Done():
+			return 0, conn.ctx.Err()
+		}
 	}
 
 	// Try to send pending data if any, and call tcp_output().
@@ -232,9 +257,16 @@ func (conn *tcpConn) isAborting() bool {
 	return conn.aborting
 }
 
+func (conn *tcpConn) hasPendingLocalData() bool {
+	if len(conn.localWriteCh) > 0 || len(conn.localWriteSubCh) > 0 {
+		return true
+	}
+	return false
+}
+
 func (conn *tcpConn) CheckState() error {
 	// Still have data to send
-	if len(conn.localWriteCh) > 0 || len(conn.localWriteSubCh) > 0 {
+	if conn.hasPendingLocalData() {
 		go conn.tryWriteLocal()
 		// Return and wait for the Sent() callback to be called, and then check again.
 		return NewLWIPError(LWIP_ERR_OK)

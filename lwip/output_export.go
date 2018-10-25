@@ -23,7 +23,7 @@ func Output(p *C.struct_pbuf) C.err_t {
 		}
 	} else {
 		buf := NewBytes(int(p.tot_len))
-		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
+		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0) // data copy here!
 		_, err := OutputFn(buf[:int(p.tot_len)])
 		FreeBytes(buf)
 		if err != nil {
