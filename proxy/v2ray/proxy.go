@@ -13,6 +13,7 @@ import (
 	"v2ray.com/core/app/proxyman"
 	vnet "v2ray.com/core/common/net"
 	"v2ray.com/core/common/session"
+	vrouting "v2ray.com/core/features/routing"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
 	"github.com/eycorsican/go-tun2socks/lwip"
@@ -30,6 +31,7 @@ type handler struct {
 
 	ctx      context.Context
 	v        *vcore.Instance
+	router   vrouting.Router
 	gateway  string
 	conns    map[tun2socks.Connection]*connEntry
 	dnsCache *proxy.DNSCache
@@ -88,9 +90,12 @@ func NewHandler(configFormat string, configBytes []byte, sniffingType []string, 
 		sniffingConfig.Enabled = false
 	}
 
+	router := v.GetFeature(vrouting.RouterType()).(vrouting.Router)
+
 	return &handler{
 		ctx:      proxyman.ContextWithSniffingConfig(context.Background(), sniffingConfig),
 		v:        v,
+		router:   router,
 		gateway:  gateway,
 		conns:    make(map[tun2socks.Connection]*connEntry, 16),
 		dnsCache: proxy.NewDNSCache(),
@@ -104,7 +109,7 @@ func (h *handler) Connect(conn tun2socks.Connection, target net.Addr) error {
 		Target: dest,
 	})
 
-	tag, err := h.v.Router().PickRoute(ctx)
+	tag, err := h.router.PickRoute(ctx)
 	if err == nil && tag == "direct" && h.gateway != "" {
 		// TODO Doing this before packets input to lwip? How about performance concerns?
 		err := route.AddRoute(dest.Address.String(), "255.255.255.255", h.gateway)
