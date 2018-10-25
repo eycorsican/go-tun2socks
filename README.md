@@ -9,7 +9,7 @@ Tested and worked on macOS, Linux, Windows and iOS (as a library).
 ## Overview
 
 ```
-                                      lwip.Setup()
+                                      lwip.NewLWIPStack()
                                            +
                                            |
                                            |
@@ -18,7 +18,7 @@ Tested and worked on macOS, Linux, Windows and iOS (as a library).
                                            |
                           lwip.Input()     |           tun2socks.Connection     lwip.RegisterUDPConnectionHandler()
                                            v
-Application +------> TUN +-----------> lwIP stack +------------------------------> tun2socks.ConnectionHandler +-------> SOCKS5 server +--> Destination
+Application +------> TUN +-----------> lwIP stack +------------------------------> tun2socks.ConnectionHandler +-------> Remote proxy server +--> Destination
 
 
                          <-----------+
@@ -29,9 +29,11 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 ## Features
 
 - Support both TCP and UDP (only IPv4 for now)
-- Supported proxy protocols: SOCKS5, Shadowsocks
+- Supported proxy handlers: SOCKS5, Shadowsocks, V2Ray
+- DNS cache
 - UDP direct relaying (no proxy)
 - ICMP local echoing
+- Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
 
 ## Build
 
