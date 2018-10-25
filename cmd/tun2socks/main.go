@@ -13,15 +13,16 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/eycorsican/go-tun2socks/cmd/tun2socks/features"
-	"github.com/eycorsican/go-tun2socks/proxy/echo"
-	v2 "github.com/eycorsican/go-tun2socks/proxy/v2ray"
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
 	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/proxy/echo"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
+	"github.com/eycorsican/go-tun2socks/proxy/v2ray"
 	"github.com/eycorsican/go-tun2socks/tun"
+
+	_ "github.com/eycorsican/go-tun2socks/cmd/tun2socks/features"
 )
 
 const (
@@ -121,7 +122,7 @@ func main() {
 				validSniffings = append(validSniffings, s)
 			}
 		}
-		vhandler := v2.NewHandler("json", configBytes, validSniffings, *gateway)
+		vhandler := v2ray.NewHandler("json", configBytes, validSniffings, *gateway)
 		lwip.RegisterTCPConnectionHandler(vhandler)
 		lwip.RegisterUDPConnectionHandler(vhandler)
 		break
