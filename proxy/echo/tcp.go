@@ -1,25 +1,28 @@
 package echo
 
 import (
-	"log"
 	"net"
 
 	tun2socks "github.com/eycorsican/go-tun2socks"
 )
+
+var bufSize = 10 * 1024
 
 type connEntry struct {
 	data []byte
 	conn tun2socks.Connection
 }
 
-// An echo server, do nothing but echo back data to the sender.
+// An echo proxy, do nothing but echo back data to the sender, the handler was
+// created for testing purposes, it may causes issues when more than one clients
+// are connecting the handler simultaneously.
 type tcpHandler struct {
 	buf chan *connEntry
 }
 
 func NewTCPHandler() tun2socks.ConnectionHandler {
 	handler := &tcpHandler{
-		buf: make(chan *connEntry, 1024),
+		buf: make(chan *connEntry, bufSize),
 	}
 	go handler.echoBack()
 	return handler
@@ -30,7 +33,6 @@ func (h *tcpHandler) echoBack() {
 		e := <-h.buf
 		_, err := e.conn.Write(e.data)
 		if err != nil {
-			log.Printf("failed to echo back data: %v", err)
 			e.conn.Close()
 		}
 	}
@@ -42,7 +44,12 @@ func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 
 func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	payload := append([]byte(nil), data...)
-	h.buf <- &connEntry{data: payload, conn: conn}
+	// This function runs in lwIP thread, we can't block, so discarding data if
+	// buf if full.
+	select {
+	case h.buf <- &connEntry{data: payload, conn: conn}:
+	default:
+	}
 	return nil
 }
 
