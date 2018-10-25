@@ -94,6 +94,7 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler
 	SetTCPRecvCallback(pcb)
 	SetTCPSentCallback(pcb)
 	SetTCPErrCallback(pcb)
+	SetTCPPollCallback(pcb, C.u8_t(1)) // interval 1 means Poll will be called twice a second
 
 	err := handler.Connect(conn, conn.RemoteAddr())
 	if err != nil {
@@ -137,6 +138,9 @@ Loop:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
 				// Data not written, buffer again.
+				if len(conn.localWriteSubCh) > 0 {
+					log.Fatal("send to non-empty sub chan")
+				}
 				conn.localWriteSubCh <- data
 				break Loop
 			}
@@ -148,6 +152,9 @@ Loop:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
 				// Data not written, buffer again.
+				if len(conn.localWriteSubCh) > 0 {
+					log.Fatal("send to non-empty sub chan")
+				}
 				conn.localWriteSubCh <- data
 				break Loop
 			}
@@ -155,6 +162,9 @@ Loop:
 			written, err := conn.tcpWrite(data)
 			if !written || err != nil {
 				// Data not written, buffer again.
+				if len(conn.localWriteSubCh) > 0 {
+					log.Fatal("send to non-empty sub chan")
+				}
 				conn.localWriteSubCh <- data
 				break Loop
 			}
@@ -224,7 +234,7 @@ func (conn *tcpConn) isAborting() bool {
 
 func (conn *tcpConn) CheckState() error {
 	// Still have data to send
-	if len(conn.localWriteCh) > 0 {
+	if len(conn.localWriteCh) > 0 || len(conn.localWriteSubCh) > 0 {
 		go conn.tryWriteLocal()
 		// Return and wait for the Sent() callback to be called, and then check again.
 		return NewLWIPError(LWIP_ERR_OK)
@@ -261,6 +271,7 @@ func (conn *tcpConn) closeInternal() error {
 	C.tcp_recv(conn.pcb, nil)
 	C.tcp_sent(conn.pcb, nil)
 	C.tcp_err(conn.pcb, nil)
+	C.tcp_poll(conn.pcb, nil, 0)
 
 	conn.Release()
 
