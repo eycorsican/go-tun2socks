@@ -31,7 +31,7 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 - Support both TCP and UDP (only IPv4 for now)
 - Supported proxy handlers: SOCKS5, Shadowsocks, V2Ray
 - DNS cache
-- UDP direct relaying (no proxy)
+- UDP direct relaying (design for iOS and may not usable on other platforms)
 - ICMP local echoing
 - Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
 
