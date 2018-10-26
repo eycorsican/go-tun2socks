@@ -1,6 +1,6 @@
 // +build windows
 
-package lwip
+package core
 
 /*
 #cgo CFLAGS: -I./src/include

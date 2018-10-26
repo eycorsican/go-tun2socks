@@ -3,14 +3,14 @@ package echo
 import (
 	"net"
 
-	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/core"
 )
 
 var bufSize = 10 * 1024
 
 type connEntry struct {
 	data []byte
-	conn lwip.Connection
+	conn core.Connection
 }
 
 // An echo proxy, do nothing but echo back data to the sender, the handler was
@@ -20,7 +20,7 @@ type tcpHandler struct {
 	buf chan *connEntry
 }
 
-func NewTCPHandler() lwip.ConnectionHandler {
+func NewTCPHandler() core.ConnectionHandler {
 	handler := &tcpHandler{
 		buf: make(chan *connEntry, bufSize),
 	}
@@ -38,11 +38,11 @@ func (h *tcpHandler) echoBack() {
 	}
 }
 
-func (h *tcpHandler) Connect(conn lwip.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn lwip.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
 	payload := append([]byte(nil), data...)
 	// This function runs in lwIP thread, we can't block, so discarding data if
 	// buf if full.
@@ -53,11 +53,11 @@ func (h *tcpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	return nil
 }
 
-func (h *tcpHandler) DidSend(conn lwip.Connection, len uint16) {
+func (h *tcpHandler) DidSend(conn core.Connection, len uint16) {
 }
 
-func (h *tcpHandler) DidClose(conn lwip.Connection) {
+func (h *tcpHandler) DidClose(conn core.Connection) {
 }
 
-func (h *tcpHandler) LocalDidClose(conn lwip.Connection) {
+func (h *tcpHandler) LocalDidClose(conn core.Connection) {
 }

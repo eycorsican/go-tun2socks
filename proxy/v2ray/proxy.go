@@ -13,7 +13,7 @@ import (
 	vnet "v2ray.com/core/common/net"
 	vsession "v2ray.com/core/common/session"
 
-	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
@@ -27,11 +27,11 @@ type handler struct {
 
 	ctx      context.Context
 	v        *vcore.Instance
-	conns    map[lwip.Connection]*connEntry
+	conns    map[core.Connection]*connEntry
 	dnsCache *proxy.DNSCache
 }
 
-func (h *handler) fetchInput(conn lwip.Connection) {
+func (h *handler) fetchInput(conn core.Connection) {
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
@@ -46,8 +46,8 @@ func (h *handler) fetchInput(conn lwip.Connection) {
 
 	// Seems a DNS response, cache it
 	if c.target.Network == vnet.Network_UDP && c.target.Port.Value() == proxy.COMMON_DNS_PORT {
-		buf := lwip.NewBytes(lwip.BufSize)
-		defer lwip.FreeBytes(buf)
+		buf := core.NewBytes(core.BufSize)
+		defer core.FreeBytes(buf)
 		for {
 			n, err := c.conn.Read(buf)
 			if err != nil {
@@ -70,16 +70,16 @@ func (h *handler) fetchInput(conn lwip.Connection) {
 	}
 }
 
-func NewHandler(ctx context.Context, instance *vcore.Instance) lwip.ConnectionHandler {
+func NewHandler(ctx context.Context, instance *vcore.Instance) core.ConnectionHandler {
 	return &handler{
 		ctx:      ctx,
 		v:        instance,
-		conns:    make(map[lwip.Connection]*connEntry, 16),
+		conns:    make(map[core.Connection]*connEntry, 16),
 		dnsCache: proxy.NewDNSCache(),
 	}
 }
 
-func (h *handler) Connect(conn lwip.Connection, target net.Addr) error {
+func (h *handler) Connect(conn core.Connection, target net.Addr) error {
 	dest := vnet.DestinationFromAddr(target)
 	sid := vsession.NewID()
 	ctx := vsession.ContextWithID(h.ctx, sid)
@@ -94,7 +94,7 @@ func (h *handler) Connect(conn lwip.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *handler) DidReceive(conn lwip.Connection, data []byte) error {
+func (h *handler) DidReceive(conn core.Connection, data []byte) error {
 	h.Lock()
 	c, ok := h.conns[conn]
 	h.Unlock()
@@ -127,19 +127,19 @@ func (h *handler) DidReceive(conn lwip.Connection, data []byte) error {
 	}
 }
 
-func (h *handler) DidSend(conn lwip.Connection, len uint16) {
+func (h *handler) DidSend(conn core.Connection, len uint16) {
 	// unused
 }
 
-func (h *handler) DidClose(conn lwip.Connection) {
+func (h *handler) DidClose(conn core.Connection) {
 	h.Close(conn)
 }
 
-func (h *handler) LocalDidClose(conn lwip.Connection) {
+func (h *handler) LocalDidClose(conn core.Connection) {
 	h.Close(conn)
 }
 
-func (h *handler) Close(conn lwip.Connection) {
+func (h *handler) Close(conn core.Connection) {
 	h.Lock()
 	defer h.Unlock()
 

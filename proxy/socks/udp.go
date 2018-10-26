@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
@@ -19,38 +19,38 @@ type udpHandler struct {
 
 	proxyHost   string
 	proxyPort   uint16
-	udpConns    map[lwip.Connection]net.Conn
-	tcpConns    map[lwip.Connection]net.Conn
-	targetAddrs map[lwip.Connection]Addr
+	udpConns    map[core.Connection]net.Conn
+	tcpConns    map[core.Connection]net.Conn
+	targetAddrs map[core.Connection]Addr
 	dnsCache    *proxy.DNSCache
 	timeout     time.Duration
 }
 
-func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration) lwip.ConnectionHandler {
+func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration) core.ConnectionHandler {
 	return &udpHandler{
 		proxyHost:   proxyHost,
 		proxyPort:   proxyPort,
-		udpConns:    make(map[lwip.Connection]net.Conn, 8),
-		tcpConns:    make(map[lwip.Connection]net.Conn, 8),
-		targetAddrs: make(map[lwip.Connection]Addr, 8),
+		udpConns:    make(map[core.Connection]net.Conn, 8),
+		tcpConns:    make(map[core.Connection]net.Conn, 8),
+		targetAddrs: make(map[core.Connection]Addr, 8),
 		dnsCache:    proxy.NewDNSCache(),
 		timeout:     timeout,
 	}
 }
 
-func (h *udpHandler) handleTCP(conn lwip.Connection, c net.Conn) {
+func (h *udpHandler) handleTCP(conn core.Connection, c net.Conn) {
 	var buf = make([]byte, 1)
 	c.SetDeadline(time.Time{})
 	c.Read(buf)
 	h.Close(conn)
 }
 
-func (h *udpHandler) fetchUDPInput(conn lwip.Connection, input net.Conn) {
-	buf := lwip.NewBytes(lwip.BufSize)
+func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.Conn) {
+	buf := core.NewBytes(core.BufSize)
 
 	defer func() {
 		h.Close(conn)
-		lwip.FreeBytes(buf)
+		core.FreeBytes(buf)
 	}()
 
 	for {
@@ -84,7 +84,7 @@ func (h *udpHandler) fetchUDPInput(conn lwip.Connection, input net.Conn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn lwip.Connection, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
 	c, err := net.Dial("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort))
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (h *udpHandler) Connect(conn lwip.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceive(conn lwip.Connection, data []byte) error {
+func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
 	h.Lock()
 	pc, ok1 := h.udpConns[conn]
 	targetAddr, ok2 := h.targetAddrs[conn]
@@ -175,19 +175,19 @@ func (h *udpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	}
 }
 
-func (h *udpHandler) DidSend(conn lwip.Connection, len uint16) {
+func (h *udpHandler) DidSend(conn core.Connection, len uint16) {
 	// unused
 }
 
-func (h *udpHandler) DidClose(conn lwip.Connection) {
+func (h *udpHandler) DidClose(conn core.Connection) {
 	// unused
 }
 
-func (h *udpHandler) LocalDidClose(conn lwip.Connection) {
+func (h *udpHandler) LocalDidClose(conn core.Connection) {
 	// unused
 }
 
-func (h *udpHandler) Close(conn lwip.Connection) {
+func (h *udpHandler) Close(conn core.Connection) {
 	conn.Close()
 
 	h.Lock()

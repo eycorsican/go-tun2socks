@@ -1,4 +1,4 @@
-package lwip
+package core
 
 // Error codes defined in lwIP.
 // /** Definitions for error constants. */

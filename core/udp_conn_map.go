@@ -1,4 +1,4 @@
-package lwip
+package core
 
 import (
 	"sync"

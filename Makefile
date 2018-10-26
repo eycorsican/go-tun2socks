@@ -8,8 +8,8 @@ RELEASE_LDFLAGS='-s -w'
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
-LWIP_DIR=$(shell pwd)/lwip
-LWIP_SRC_DIR=$(LWIP_DIR)/src
+SRC_DIR=$(shell pwd)/core
+LWIP_SRC_DIR=$(SRC_DIR)/src
 LWIP_INCLUDE_DIR=$(LWIP_SRC_DIR)/include
 LWIP_HEADERS_DIR=$(LWIP_INCLUDE_DIR)/lwip
 
@@ -55,16 +55,16 @@ CUSTOM_INCLUDE_FILES=$(LWIP_SRC_DIR)/custom/arch
 CUSTOM_HEADER_FILES=$(LWIP_SRC_DIR)/custom/lwipopts.h
 
 define copy_files
-	cp $(CORE_FILES) $(LWIP_DIR)/
-	cp $(CORE_4_FILES) $(LWIP_DIR)/
-	cp $(CORE_6_FILES) $(LWIP_DIR)/
-	cp $(CUSTOM_SRC_FILES) $(LWIP_DIR)/
+	cp $(CORE_FILES) $(SRC_DIR)/
+	cp $(CORE_4_FILES) $(SRC_DIR)/
+	cp $(CORE_6_FILES) $(SRC_DIR)/
+	cp $(CUSTOM_SRC_FILES) $(SRC_DIR)/
 	cp -r $(CUSTOM_INCLUDE_FILES) $(LWIP_INCLUDE_DIR)/
 	cp -r $(CUSTOM_HEADER_FILES) $(LWIP_HEADERS_DIR)/
 endef
 
 define clear_files
-	rm -rf $(LWIP_DIR)/*.c
+	rm -rf $(SRC_DIR)/*.c
 	rm -rf $(LWIP_INCLUDE_DIR)/arch
 	rm -rf $(LWIP_HEADERS_DIR)/lwipopts.h
 endef

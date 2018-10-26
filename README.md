@@ -9,20 +9,20 @@ Tested and worked on macOS, Linux, Windows and iOS (as a library).
 ## Overview
 
 ```
-                                      lwip.NewLWIPStack()
+                                      core.NewLWIPStack()
                                            +
                                            |
                                            |
                                            |
-                                           |                TCP/UDP             lwip.RegisterTCPConnectionHandler()
+                                           |                TCP/UDP             core.RegisterTCPConnectionHandler()
                                            |
-                          lwip.Input()     |           tun2socks.Connection     lwip.RegisterUDPConnectionHandler()
+                          core.Input()     |           tun2socks.Connection     core.RegisterUDPConnectionHandler()
                                            v
 Application +------> TUN +-----------> lwIP stack +------------------------------> tun2socks.ConnectionHandler +-------> Remote proxy server +--> Destination
 
 
                          <-----------+
-                    lwip.RegisterOutputFn()
+                    core.RegisterOutputFn()
 
 ```
 
@@ -143,16 +143,18 @@ Add a route for your proxy server to bypass the TUN interface:
 route add 1.2.3.4 192.168.0.1 metric 5
 ```
 
-## What happened to lwIP?
-
-Take a look at this repo: https://github.com/eycorsican/lwip
-
 ## TODO
 - Built-in routing rules and routing table management
 - Support IPv6
 - Support ICMP packets forwarding
 
-## Acknowledgements
+## This project is using lwIP 
+
+This project is using a modified version of lwIP, you can checkout this repo to find out what are the changes: https://github.com/eycorsican/lwip
+
+## Many thanks to the following projects
+- https://savannah.nongnu.org/projects/lwip
+- https://github.com/ambrop72/badvpn
 - https://github.com/zhuhaow/tun2socks
 - https://github.com/yinghuocho/gotun2socks
 - https://github.com/shadowsocks/go-shadowsocks2

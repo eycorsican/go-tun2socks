@@ -8,29 +8,29 @@ import (
 	"sync"
 	"time"
 
-	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/core"
 )
 
 type udpHandler struct {
 	sync.Mutex
 
-	udpConns       map[lwip.Connection]*net.UDPConn
-	udpTargetAddrs map[lwip.Connection]*net.UDPAddr
+	udpConns       map[core.Connection]*net.UDPConn
+	udpTargetAddrs map[core.Connection]*net.UDPAddr
 }
 
-func NewUDPHandler() lwip.ConnectionHandler {
+func NewUDPHandler() core.ConnectionHandler {
 	return &udpHandler{
-		udpConns:       make(map[lwip.Connection]*net.UDPConn, 8),
-		udpTargetAddrs: make(map[lwip.Connection]*net.UDPAddr, 8),
+		udpConns:       make(map[core.Connection]*net.UDPConn, 8),
+		udpTargetAddrs: make(map[core.Connection]*net.UDPAddr, 8),
 	}
 }
 
-func (h *udpHandler) fetchUDPInput(conn lwip.Connection, pc *net.UDPConn) {
-	buf := lwip.NewBytes(lwip.BufSize)
+func (h *udpHandler) fetchUDPInput(conn core.Connection, pc *net.UDPConn) {
+	buf := core.NewBytes(core.BufSize)
 
 	defer func() {
 		h.Close(conn)
-		lwip.FreeBytes(buf)
+		core.FreeBytes(buf)
 	}()
 
 	for {
@@ -49,7 +49,7 @@ func (h *udpHandler) fetchUDPInput(conn lwip.Connection, pc *net.UDPConn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn lwip.Connection, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
 	bindAddr := &net.UDPAddr{IP: net.IP{0, 0, 0, 0}, Port: 0}
 	pc, err := net.ListenUDP("udp", bindAddr)
 	if err != nil {
@@ -65,7 +65,7 @@ func (h *udpHandler) Connect(conn lwip.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceive(conn lwip.Connection, data []byte) error {
+func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
 	h.Lock()
 	pc, ok1 := h.udpConns[conn]
 	addr, ok2 := h.udpTargetAddrs[conn]
@@ -83,19 +83,19 @@ func (h *udpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	}
 }
 
-func (h *udpHandler) DidSend(conn lwip.Connection, len uint16) {
+func (h *udpHandler) DidSend(conn core.Connection, len uint16) {
 	// unused
 }
 
-func (h *udpHandler) DidClose(conn lwip.Connection) {
+func (h *udpHandler) DidClose(conn core.Connection) {
 	// unused
 }
 
-func (h *udpHandler) LocalDidClose(conn lwip.Connection) {
+func (h *udpHandler) LocalDidClose(conn core.Connection) {
 	// unused
 }
 
-func (h *udpHandler) Close(conn lwip.Connection) {
+func (h *udpHandler) Close(conn core.Connection) {
 	conn.Close()
 
 	h.Lock()

@@ -19,7 +19,7 @@ import (
 	vproxyman "v2ray.com/core/app/proxyman"
 	vrouting "v2ray.com/core/features/routing"
 
-	"github.com/eycorsican/go-tun2socks/lwip"
+	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/proxy/echo"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
@@ -70,7 +70,7 @@ func main() {
 	}
 
 	// Setup TCP/IP stack.
-	lwipWriter := lwip.NewLWIPStack().(io.Writer)
+	lwipWriter := core.NewLWIPStack().(io.Writer)
 
 	// Wrap a writer to delay ICMP packets if delay time is not zero.
 	if *delayICMP > 0 {
@@ -80,20 +80,20 @@ func main() {
 	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
 	case "echo":
-		lwip.RegisterTCPConnectionHandler(echo.NewTCPHandler())
-		lwip.RegisterUDPConnectionHandler(echo.NewUDPHandler())
+		core.RegisterTCPConnectionHandler(echo.NewTCPHandler())
+		core.RegisterUDPConnectionHandler(echo.NewUDPHandler())
 		break
 	case "socks":
-		lwip.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyAddr, proxyPort))
-		lwip.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyAddr, proxyPort, *udpTimeout))
+		core.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyAddr, proxyPort))
+		core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyAddr, proxyPort, *udpTimeout))
 		break
 	case "shadowsocks":
 		if *proxyCipher == "" || *proxyPassword == "" {
 			log.Fatal("invalid cipher or password")
 		}
 		log.Printf("creat Shadowsocks handler: %v:%v@%v:%v", *proxyCipher, *proxyPassword, proxyAddr, proxyPort)
-		lwip.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
-		lwip.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword, *udpTimeout))
+		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
+		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword, *udpTimeout))
 		break
 	case "v2ray":
 		configBytes, err := ioutil.ReadFile(*vconfig)
@@ -130,8 +130,8 @@ func main() {
 		ctx := vproxyman.ContextWithSniffingConfig(context.Background(), sniffingConfig)
 
 		vhandler := v2ray.NewHandler(ctx, v)
-		lwip.RegisterTCPConnectionHandler(vhandler)
-		lwip.RegisterUDPConnectionHandler(vhandler)
+		core.RegisterTCPConnectionHandler(vhandler)
+		core.RegisterUDPConnectionHandler(vhandler)
 		break
 	default:
 		log.Fatal("unsupported proxy type")
@@ -139,7 +139,7 @@ func main() {
 
 	// Register an output function to write packets output from lwip stack to tun
 	// device, output function should be set before input any packets.
-	lwip.RegisterOutputFn(func(data []byte) (int, error) {
+	core.RegisterOutputFn(func(data []byte) (int, error) {
 		return tunDev.Write(data)
 	})
 
