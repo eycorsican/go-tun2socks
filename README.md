@@ -143,6 +143,17 @@ Add a route for your proxy server to bypass the TUN interface:
 route add 1.2.3.4 192.168.0.1 metric 5
 ```
 
+## A few notes for using V2Ray proxy handler
+- Using V2Ray proxy handler: `tun2socks -proxyType v2ray -vconfig config.json`
+- V2Ray proxy handler dials connections with a [V2Ray Instance](https://github.com/v2ray/v2ray-core/blob/master/functions.go)
+- Configuration file V2Ray must in JSON format
+- Proxy server addresses in the configuration file should be IPs and not domains except your system DNS will match "direct" rules
+- Configuration file should not contain direct `domain` rules, since they cause infinitely looping requests
+- Dynamic routing happens prior to packets input to lwIP, the [V2Ray Router](https://github.com/v2ray/v2ray-core/blob/master/features/routing/router.go) is used to check if the IP packet matching "direct" tag, information available for the matching process are (protocol, destination ip, destination port)
+- To enable dynamic routing, just set the `-gateway` argument, for example: `tun2socks -proxyType v2ray -vconfig config.json -gateway 192.168.0.1`
+- The tag "direct" is hard coded to identify direct rules, which if dynamic routing is enabled, will indicate adding routes to the original gateway for the corresponding IP packets
+- Inbounds are not necessary
+
 ## TODO
 - Built-in routing rules and routing table management
 - Support IPv6
