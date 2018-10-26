@@ -13,7 +13,6 @@ import (
 	vnet "v2ray.com/core/common/net"
 	vsession "v2ray.com/core/common/session"
 
-	tun2socks "github.com/eycorsican/go-tun2socks"
 	"github.com/eycorsican/go-tun2socks/lwip"
 	"github.com/eycorsican/go-tun2socks/proxy"
 )
@@ -28,11 +27,11 @@ type handler struct {
 
 	ctx      context.Context
 	v        *vcore.Instance
-	conns    map[tun2socks.Connection]*connEntry
+	conns    map[lwip.Connection]*connEntry
 	dnsCache *proxy.DNSCache
 }
 
-func (h *handler) fetchInput(conn tun2socks.Connection) {
+func (h *handler) fetchInput(conn lwip.Connection) {
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
@@ -71,16 +70,16 @@ func (h *handler) fetchInput(conn tun2socks.Connection) {
 	}
 }
 
-func NewHandler(ctx context.Context, instance *vcore.Instance) tun2socks.ConnectionHandler {
+func NewHandler(ctx context.Context, instance *vcore.Instance) lwip.ConnectionHandler {
 	return &handler{
 		ctx:      ctx,
 		v:        instance,
-		conns:    make(map[tun2socks.Connection]*connEntry, 16),
+		conns:    make(map[lwip.Connection]*connEntry, 16),
 		dnsCache: proxy.NewDNSCache(),
 	}
 }
 
-func (h *handler) Connect(conn tun2socks.Connection, target net.Addr) error {
+func (h *handler) Connect(conn lwip.Connection, target net.Addr) error {
 	dest := vnet.DestinationFromAddr(target)
 	sid := vsession.NewID()
 	ctx := vsession.ContextWithID(h.ctx, sid)
@@ -95,7 +94,7 @@ func (h *handler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *handler) DidReceive(conn tun2socks.Connection, data []byte) error {
+func (h *handler) DidReceive(conn lwip.Connection, data []byte) error {
 	h.Lock()
 	c, ok := h.conns[conn]
 	h.Unlock()
@@ -128,19 +127,19 @@ func (h *handler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	}
 }
 
-func (h *handler) DidSend(conn tun2socks.Connection, len uint16) {
+func (h *handler) DidSend(conn lwip.Connection, len uint16) {
 	// unused
 }
 
-func (h *handler) DidClose(conn tun2socks.Connection) {
+func (h *handler) DidClose(conn lwip.Connection) {
 	h.Close(conn)
 }
 
-func (h *handler) LocalDidClose(conn tun2socks.Connection) {
+func (h *handler) LocalDidClose(conn lwip.Connection) {
 	h.Close(conn)
 }
 
-func (h *handler) Close(conn tun2socks.Connection) {
+func (h *handler) Close(conn lwip.Connection) {
 	h.Lock()
 	defer h.Unlock()
 

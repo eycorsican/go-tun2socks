@@ -1,16 +1,34 @@
 package lwip
 
 import (
-	tun2socks "github.com/eycorsican/go-tun2socks"
+	"net"
 )
 
-var tcpConnectionHandler tun2socks.ConnectionHandler
-var udpConnectionHandler tun2socks.ConnectionHandler
+// ConnectionHandler handles connections comming from TUN.
+type ConnectionHandler interface {
+	// Connect connects the proxy server.
+	Connect(conn Connection, target net.Addr) error
 
-func RegisterTCPConnectionHandler(h tun2socks.ConnectionHandler) {
+	// DidReceive will be called when data arrives from TUN.
+	DidReceive(conn Connection, data []byte) error
+
+	// DidSend will be called when sent data has been acknowledged by local clients.
+	DidSend(conn Connection, len uint16)
+
+	// DidClose will be called when the connection has been closed.
+	DidClose(conn Connection)
+
+	// LocalDidClose will be called when local client has close the connection.
+	LocalDidClose(conn Connection)
+}
+
+var tcpConnectionHandler ConnectionHandler
+var udpConnectionHandler ConnectionHandler
+
+func RegisterTCPConnectionHandler(h ConnectionHandler) {
 	tcpConnectionHandler = h
 }
 
-func RegisterUDPConnectionHandler(h tun2socks.ConnectionHandler) {
+func RegisterUDPConnectionHandler(h ConnectionHandler) {
 	udpConnectionHandler = h
 }

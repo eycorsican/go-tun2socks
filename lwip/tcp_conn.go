@@ -14,15 +14,13 @@ import (
 	"net"
 	"sync"
 	"unsafe"
-
-	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 type tcpConn struct {
 	sync.Mutex
 
 	pcb         *C.struct_tcp_pcb
-	handler     tun2socks.ConnectionHandler
+	handler     ConnectionHandler
 	network     string
 	remoteAddr  string
 	remotePort  uint16
@@ -53,7 +51,7 @@ func checkTCPConns() {
 	})
 }
 
-func NewTCPConnection(pcb *C.struct_tcp_pcb, handler tun2socks.ConnectionHandler) (tun2socks.Connection, error) {
+func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
 	// prepare key
 	connKeyArg := NewConnKeyArg()
 	connKey := rand.Uint32()

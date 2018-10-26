@@ -12,7 +12,6 @@ import (
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
-	tun2socks "github.com/eycorsican/go-tun2socks"
 	"github.com/eycorsican/go-tun2socks/lwip"
 	"github.com/eycorsican/go-tun2socks/proxy"
 )
@@ -22,13 +21,13 @@ type udpHandler struct {
 
 	cipher      sscore.Cipher
 	remoteAddr  net.Addr
-	conns       map[tun2socks.Connection]net.PacketConn
-	targetAddrs map[tun2socks.Connection]sssocks.Addr
+	conns       map[lwip.Connection]net.PacketConn
+	targetAddrs map[lwip.Connection]sssocks.Addr
 	dnsCache    *proxy.DNSCache
 	timeout     time.Duration
 }
 
-func NewUDPHandler(server, cipher, password string, timeout time.Duration) tun2socks.ConnectionHandler {
+func NewUDPHandler(server, cipher, password string, timeout time.Duration) lwip.ConnectionHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
 		log.Fatal(err)
@@ -42,14 +41,14 @@ func NewUDPHandler(server, cipher, password string, timeout time.Duration) tun2s
 	return &udpHandler{
 		cipher:      ciph,
 		remoteAddr:  remoteAddr,
-		conns:       make(map[tun2socks.Connection]net.PacketConn, 16),
-		targetAddrs: make(map[tun2socks.Connection]sssocks.Addr, 16),
+		conns:       make(map[lwip.Connection]net.PacketConn, 16),
+		targetAddrs: make(map[lwip.Connection]sssocks.Addr, 16),
 		dnsCache:    proxy.NewDNSCache(),
 		timeout:     timeout,
 	}
 }
 
-func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketConn) {
+func (h *udpHandler) fetchUDPInput(conn lwip.Connection, input net.PacketConn) {
 	buf := lwip.NewBytes(lwip.BufSize)
 
 	defer func() {
@@ -88,7 +87,7 @@ func (h *udpHandler) fetchUDPInput(conn tun2socks.Connection, input net.PacketCo
 	}
 }
 
-func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
+func (h *udpHandler) Connect(conn lwip.Connection, target net.Addr) error {
 	pc, err := net.ListenPacket("udp", "")
 	if err != nil {
 		return err
@@ -103,7 +102,7 @@ func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
+func (h *udpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	h.Lock()
 	pc, ok1 := h.conns[conn]
 	targetAddr, ok2 := h.targetAddrs[conn]
@@ -144,19 +143,19 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	}
 }
 
-func (h *udpHandler) DidSend(conn tun2socks.Connection, len uint16) {
+func (h *udpHandler) DidSend(conn lwip.Connection, len uint16) {
 	// unused
 }
 
-func (h *udpHandler) DidClose(conn tun2socks.Connection) {
+func (h *udpHandler) DidClose(conn lwip.Connection) {
 	// unused
 }
 
-func (h *udpHandler) LocalDidClose(conn tun2socks.Connection) {
+func (h *udpHandler) LocalDidClose(conn lwip.Connection) {
 	// unused
 }
 
-func (h *udpHandler) Close(conn tun2socks.Connection) {
+func (h *udpHandler) Close(conn lwip.Connection) {
 	conn.Close()
 
 	h.Lock()

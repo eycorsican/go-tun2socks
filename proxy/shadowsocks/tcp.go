@@ -12,7 +12,7 @@ import (
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
-	tun2socks "github.com/eycorsican/go-tun2socks"
+	"github.com/eycorsican/go-tun2socks/lwip"
 )
 
 type tcpHandler struct {
@@ -20,12 +20,12 @@ type tcpHandler struct {
 
 	cipher   sscore.Cipher
 	server   string
-	conns    map[tun2socks.Connection]net.Conn
-	tgtAddrs map[tun2socks.Connection]net.Addr
-	tgtSent  map[tun2socks.Connection]bool
+	conns    map[lwip.Connection]net.Conn
+	tgtAddrs map[lwip.Connection]net.Addr
+	tgtSent  map[lwip.Connection]bool
 }
 
-func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
+func (h *tcpHandler) fetchInput(conn lwip.Connection, input io.Reader) {
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
@@ -37,7 +37,7 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 	}
 }
 
-func (h *tcpHandler) sendTargetAddress(conn tun2socks.Connection) error {
+func (h *tcpHandler) sendTargetAddress(conn lwip.Connection) error {
 	h.Lock()
 	defer h.Unlock()
 
@@ -61,7 +61,7 @@ func (h *tcpHandler) sendTargetAddress(conn tun2socks.Connection) error {
 	return nil
 }
 
-func NewTCPHandler(server, cipher, password string) tun2socks.ConnectionHandler {
+func NewTCPHandler(server, cipher, password string) lwip.ConnectionHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
 		log.Fatal(err)
@@ -70,13 +70,13 @@ func NewTCPHandler(server, cipher, password string) tun2socks.ConnectionHandler 
 	return &tcpHandler{
 		cipher:   ciph,
 		server:   server,
-		conns:    make(map[tun2socks.Connection]net.Conn, 16),
-		tgtAddrs: make(map[tun2socks.Connection]net.Addr, 16),
-		tgtSent:  make(map[tun2socks.Connection]bool, 16),
+		conns:    make(map[lwip.Connection]net.Conn, 16),
+		tgtAddrs: make(map[lwip.Connection]net.Addr, 16),
+		tgtSent:  make(map[lwip.Connection]bool, 16),
 	}
 }
 
-func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn lwip.Connection, target net.Addr) error {
 	rc, err := net.Dial("tcp", h.server)
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial remote server failed: %v", err))
@@ -91,7 +91,7 @@ func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	h.Lock()
 	rc, ok1 := h.conns[conn]
 	h.Unlock()
@@ -114,18 +114,18 @@ func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	}
 }
 
-func (h *tcpHandler) DidSend(conn tun2socks.Connection, len uint16) {
+func (h *tcpHandler) DidSend(conn lwip.Connection, len uint16) {
 }
 
-func (h *tcpHandler) DidClose(conn tun2socks.Connection) {
+func (h *tcpHandler) DidClose(conn lwip.Connection) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) LocalDidClose(conn tun2socks.Connection) {
+func (h *tcpHandler) LocalDidClose(conn lwip.Connection) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) Close(conn tun2socks.Connection) {
+func (h *tcpHandler) Close(conn lwip.Connection) {
 	h.Lock()
 	defer h.Unlock()
 

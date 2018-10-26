@@ -4,21 +4,21 @@ import (
 	"log"
 	"net"
 
-	tun2socks "github.com/eycorsican/go-tun2socks"
+	"github.com/eycorsican/go-tun2socks/lwip"
 )
 
 // An echo server, do nothing but echo back data to the sender.
 type udpHandler struct{}
 
-func NewUDPHandler() tun2socks.ConnectionHandler {
+func NewUDPHandler() lwip.ConnectionHandler {
 	return &udpHandler{}
 }
 
-func (h *udpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
+func (h *udpHandler) Connect(conn lwip.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
+func (h *udpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	// Dispatch to another goroutine, otherwise will result in deadlock.
 	payload := append([]byte(nil), data...)
 	go func(b []byte) {
@@ -30,11 +30,11 @@ func (h *udpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	return nil
 }
 
-func (h *udpHandler) DidSend(conn tun2socks.Connection, len uint16) {
+func (h *udpHandler) DidSend(conn lwip.Connection, len uint16) {
 }
 
-func (h *udpHandler) DidClose(conn tun2socks.Connection) {
+func (h *udpHandler) DidClose(conn lwip.Connection) {
 }
 
-func (h *udpHandler) LocalDidClose(conn tun2socks.Connection) {
+func (h *udpHandler) LocalDidClose(conn lwip.Connection) {
 }

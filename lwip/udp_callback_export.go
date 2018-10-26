@@ -8,8 +8,6 @@ import "C"
 import (
 	"log"
 	"unsafe"
-
-	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 //export UDPRecvFn
@@ -47,7 +45,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			return
 		}
 		udpConns.Store(connId, conn)
-		log.Printf("created new UDP connection %v->%v", conn.(tun2socks.Connection).LocalAddr(), conn.(tun2socks.Connection).RemoteAddr())
+		log.Printf("created new UDP connection %v->%v", conn.(Connection).LocalAddr(), conn.(Connection).RemoteAddr())
 	}
 
 	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
@@ -56,5 +54,5 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
-	conn.(tun2socks.Connection).Receive(buf)
+	conn.(Connection).Receive(buf)
 }

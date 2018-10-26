@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	tun2socks "github.com/eycorsican/go-tun2socks"
+	"github.com/eycorsican/go-tun2socks/lwip"
 )
 
 type tcpHandler struct {
@@ -19,18 +19,18 @@ type tcpHandler struct {
 
 	proxyHost string
 	proxyPort uint16
-	conns     map[tun2socks.Connection]net.Conn
+	conns     map[lwip.Connection]net.Conn
 }
 
-func NewTCPHandler(proxyHost string, proxyPort uint16) tun2socks.ConnectionHandler {
+func NewTCPHandler(proxyHost string, proxyPort uint16) lwip.ConnectionHandler {
 	return &tcpHandler{
 		proxyHost: proxyHost,
 		proxyPort: proxyPort,
-		conns:     make(map[tun2socks.Connection]net.Conn, 16),
+		conns:     make(map[lwip.Connection]net.Conn, 16),
 	}
 }
 
-func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
+func (h *tcpHandler) fetchInput(conn lwip.Connection, input io.Reader) {
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
@@ -42,7 +42,7 @@ func (h *tcpHandler) fetchInput(conn tun2socks.Connection, input io.Reader) {
 	}
 }
 
-func (h *tcpHandler) getConn(conn tun2socks.Connection) (net.Conn, bool) {
+func (h *tcpHandler) getConn(conn lwip.Connection) (net.Conn, bool) {
 	h.Lock()
 	defer h.Unlock()
 	if c, ok := h.conns[conn]; ok {
@@ -51,7 +51,7 @@ func (h *tcpHandler) getConn(conn tun2socks.Connection) (net.Conn, bool) {
 	return nil, false
 }
 
-func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn lwip.Connection, target net.Addr) error {
 	dialer, err := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort), nil, nil)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (h *tcpHandler) Connect(conn tun2socks.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn lwip.Connection, data []byte) error {
 	if c, found := h.getConn(conn); found {
 		_, err := c.Write(data)
 		if err != nil {
@@ -81,18 +81,18 @@ func (h *tcpHandler) DidReceive(conn tun2socks.Connection, data []byte) error {
 	}
 }
 
-func (h *tcpHandler) DidSend(conn tun2socks.Connection, len uint16) {
+func (h *tcpHandler) DidSend(conn lwip.Connection, len uint16) {
 }
 
-func (h *tcpHandler) DidClose(conn tun2socks.Connection) {
+func (h *tcpHandler) DidClose(conn lwip.Connection) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) LocalDidClose(conn tun2socks.Connection) {
+func (h *tcpHandler) LocalDidClose(conn lwip.Connection) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) Close(conn tun2socks.Connection) {
+func (h *tcpHandler) Close(conn lwip.Connection) {
 	if c, found := h.getConn(conn); found {
 		c.Close()
 		h.Lock()

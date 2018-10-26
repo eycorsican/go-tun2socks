@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"log"
 	"unsafe"
-
-	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 // These exported callback functions must be placed in a seperated file.
@@ -61,7 +59,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 
 	if p == nil {
 		// The connection has been closed.
-		err := conn.(tun2socks.Connection).LocalDidClose()
+		err := conn.(Connection).LocalDidClose()
 		if err.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
 		} else if err.(*lwipError).Code == LWIP_ERR_OK {
@@ -80,7 +78,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 
 	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
-	handlerErr := conn.(tun2socks.Connection).Receive(buf)
+	handlerErr := conn.(Connection).Receive(buf)
 
 	if handlerErr != nil {
 		log.Printf("receive data failed: %v", handlerErr)
@@ -94,7 +92,7 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 //export TCPSentFn
 func TCPSentFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, len C.u16_t) C.err_t {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
-		err := conn.(tun2socks.Connection).Sent(uint16(len))
+		err := conn.(Connection).Sent(uint16(len))
 		if err.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
 		} else {
@@ -113,12 +111,12 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 		switch err {
 		case C.ERR_ABRT:
 			// Aborted through tcp_abort or by a TCP timer
-			conn.(tun2socks.Connection).Err(errors.New("connection aborted"))
+			conn.(Connection).Err(errors.New("connection aborted"))
 		case C.ERR_RST:
 			// The connection was reset by the remote host
-			conn.(tun2socks.Connection).Err(errors.New("connection reseted"))
+			conn.(Connection).Err(errors.New("connection reseted"))
 		default:
-			conn.(tun2socks.Connection).Err(errors.New(fmt.Sprintf("lwip error code %v", int(err))))
+			conn.(Connection).Err(errors.New(fmt.Sprintf("lwip error code %v", int(err))))
 		}
 	}
 }
@@ -126,7 +124,7 @@ func TCPErrFn(arg unsafe.Pointer, err C.err_t) {
 //export TCPPollFn
 func TCPPollFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb) C.err_t {
 	if conn, ok := tcpConns.Load(GetConnKeyVal(arg)); ok {
-		err := conn.(tun2socks.Connection).Poll()
+		err := conn.(Connection).Poll()
 		if err.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
 		} else if err.(*lwipError).Code == LWIP_ERR_OK {

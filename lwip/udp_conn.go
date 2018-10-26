@@ -11,20 +11,18 @@ import (
 	"log"
 	"net"
 	"unsafe"
-
-	tun2socks "github.com/eycorsican/go-tun2socks"
 )
 
 type udpConn struct {
 	pcb        *C.struct_udp_pcb
-	handler    tun2socks.ConnectionHandler
+	handler    ConnectionHandler
 	remoteAddr C.ip_addr_t
 	localAddr  C.ip_addr_t
 	remotePort C.u16_t
 	localPort  C.u16_t
 }
 
-func NewUDPConnection(pcb *C.struct_udp_pcb, handler tun2socks.ConnectionHandler, localAddr, remoteAddr C.ip_addr_t, localPort, remotePort C.u16_t) (tun2socks.Connection, error) {
+func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localAddr, remoteAddr C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
 	conn := &udpConn{
 		handler:    handler,
 		pcb:        pcb,
