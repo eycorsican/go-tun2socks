@@ -91,7 +91,6 @@ func main() {
 		if *proxyCipher == "" || *proxyPassword == "" {
 			log.Fatal("invalid cipher or password")
 		}
-		log.Printf("creat Shadowsocks handler: %v:%v@%v:%v", *proxyCipher, *proxyPassword, proxyAddr, proxyPort)
 		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
 		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword, *udpTimeout))
 		break
