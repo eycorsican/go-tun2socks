@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -14,6 +15,9 @@ import (
 	"time"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
+	vcore "v2ray.com/core"
+	vproxyman "v2ray.com/core/app/proxyman"
+	vrouting "v2ray.com/core/features/routing"
 
 	"github.com/eycorsican/go-tun2socks/lwip"
 	"github.com/eycorsican/go-tun2socks/proxy/echo"
@@ -26,31 +30,8 @@ import (
 )
 
 const (
-	MTU           = 1500
-	PROTOCOL_ICMP = 0x1
+	MTU = 1500
 )
-
-type icmpDelayedWriter struct {
-	stack lwip.LWIPStack
-	delay int
-}
-
-func (w *icmpDelayedWriter) Write(buf []byte) (int, error) {
-	if uint8(buf[9]) == PROTOCOL_ICMP && w.delay > 0 {
-		payload := make([]byte, len(buf))
-		copy(payload, buf)
-		go func(data []byte) {
-			time.Sleep(time.Duration(w.delay) * time.Millisecond)
-			_, err := w.stack.Write(data)
-			if err != nil {
-				log.Fatal("failed to input data to the stack: %v", err)
-			}
-		}(payload)
-		return len(buf), nil
-	} else {
-		return w.stack.Write(buf)
-	}
-}
 
 func main() {
 	tunName := flag.String("tunName", "tun1", "TUN interface name")
@@ -89,8 +70,12 @@ func main() {
 	}
 
 	// Setup TCP/IP stack.
-	lwipStack := lwip.NewLWIPStack()
-	lwipWriter := &icmpDelayedWriter{stack: lwipStack, delay: *delayICMP}
+	lwipWriter := lwip.NewLWIPStack().(io.Writer)
+
+	// Wrap a writer to delay ICMP packets if delay time is not zero.
+	if *delayICMP > 0 {
+		lwipWriter = &icmpDelayedWriter{writer: lwipWriter, delay: *delayICMP}
+	}
 
 	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
@@ -122,7 +107,29 @@ func main() {
 				validSniffings = append(validSniffings, s)
 			}
 		}
-		vhandler := v2ray.NewHandler("json", configBytes, validSniffings, *gateway)
+
+		v, err := vcore.StartInstance("json", configBytes)
+		if err != nil {
+			log.Fatal("start V instance failed: %v", err)
+		}
+
+		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
+		if *gateway != "" {
+			router := v.GetFeature(vrouting.RouterType()).(vrouting.Router)
+			lwipWriter = &routingAwareWriter{writer: lwipWriter, router: router, gateway: *gateway}
+		}
+
+		sniffingConfig := &vproxyman.SniffingConfig{
+			Enabled:             true,
+			DestinationOverride: validSniffings,
+		}
+		if len(validSniffings) == 0 {
+			sniffingConfig.Enabled = false
+		}
+
+		ctx := vproxyman.ContextWithSniffingConfig(context.Background(), sniffingConfig)
+
+		vhandler := v2ray.NewHandler(ctx, v)
 		lwip.RegisterTCPConnectionHandler(vhandler)
 		lwip.RegisterUDPConnectionHandler(vhandler)
 		break
