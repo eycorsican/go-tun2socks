@@ -64,13 +64,12 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	ctx, cancel := context.WithCancel(context.Background())
 
 	conn := &tcpConn{
-		pcb:     pcb,
-		handler: handler,
-		network: "tcp",
-		// FIXME: need to handle IPv6
-		remoteAddr:      GetIP4Addr(pcb.local_ip),
+		pcb:             pcb,
+		handler:         handler,
+		network:         "tcp",
+		remoteAddr:      GetIPAddr(pcb.local_ip),
 		remotePort:      uint16(pcb.local_port),
-		localAddr:       GetIP4Addr(pcb.remote_ip),
+		localAddr:       GetIPAddr(pcb.remote_ip),
 		localPort:       uint16(pcb.remote_port),
 		connKeyArg:      connKeyArg,
 		connKey:         connKey,

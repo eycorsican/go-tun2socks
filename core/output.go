@@ -12,11 +12,18 @@ output(struct netif *netif, struct pbuf *p, const ip4_addr_t *ipaddr)
 	return Output(p);
 }
 
+err_t
+output_ip6(struct netif *netif, struct pbuf *p, const ip6_addr_t *ipaddr)
+{
+	return Output(p);
+}
+
 void
 set_output()
 {
 	if (netif_list != NULL) {
 		(*netif_list).output = output;
+		(*netif_list).output_ip6 = output_ip6;
 	}
 }
 */

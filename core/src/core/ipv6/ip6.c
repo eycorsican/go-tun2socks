@@ -85,6 +85,13 @@
 struct netif *
 ip6_route(const ip6_addr_t *src, const ip6_addr_t *dest)
 {
+#if TUN2SOCKS
+  // go-tun2socks logic
+  // no routing and just use the default netif, netif_list[0], i.e., the loopif
+  // enable loopif by setting LWIP_HAVE_LOOPIF = 1 in lwipopts.h
+  return netif_list;
+#endif /* TUN2SOCKS */
+
 #if LWIP_SINGLE_NETIF
   LWIP_UNUSED_ARG(src);
   LWIP_UNUSED_ARG(dest);
@@ -468,6 +475,12 @@ ip6_forward(struct pbuf *p, struct ip6_hdr *iphdr, struct netif *inp)
 static int
 ip6_input_accept(struct netif *netif)
 {
+#if TUN2SOCKS
+      // go-tun2socks logic
+      // all packets are accepted by the first one, and it should be the loopif
+      return 1;
+#endif /* TUN2SOCKS */
+
   /* interface is up? */
   if (netif_is_up(netif)) {
     u8_t i;

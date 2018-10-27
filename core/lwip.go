@@ -30,7 +30,7 @@ func NewLWIPStack() LWIPStack {
 		panic("tcp_new return nil")
 	}
 
-	err := C.tcp_bind(tcpPCB, &C.ip_addr_any, 0)
+	err := C.tcp_bind(tcpPCB, C.IP_ADDR_ANY, 0)
 	switch err {
 	case C.ERR_OK:
 		break
@@ -57,7 +57,7 @@ func NewLWIPStack() LWIPStack {
 		panic("could not allocate udp pcb")
 	}
 
-	err = C.udp_bind(udpPCB, &C.ip_addr_any, 0)
+	err = C.udp_bind(udpPCB, C.IP_ADDR_ANY, 0)
 	if err != C.ERR_OK {
 		log.Fatal("address already in use")
 	}

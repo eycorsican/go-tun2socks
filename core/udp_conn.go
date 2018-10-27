@@ -39,11 +39,11 @@ func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localAdd
 }
 
 func (conn *udpConn) RemoteAddr() net.Addr {
-	return MustResolveUDPAddr(GetIP4Addr(conn.remoteAddr), uint16(conn.remotePort))
+	return MustResolveUDPAddr(GetIPAddr(conn.remoteAddr), uint16(conn.remotePort))
 }
 
 func (conn *udpConn) LocalAddr() net.Addr {
-	return MustResolveUDPAddr(GetIP4Addr(conn.localAddr), uint16(conn.localPort))
+	return MustResolveUDPAddr(GetIPAddr(conn.localAddr), uint16(conn.localPort))
 }
 
 func (conn *udpConn) Receive(data []byte) error {

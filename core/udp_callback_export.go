@@ -24,8 +24,8 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	}
 
 	connId := udpConnId{
-		src: MustResolveUDPAddr(GetIP4Addr(*addr), uint16(port)).String(),
-		dst: MustResolveUDPAddr(GetIP4Addr(*destAddr), uint16(destPort)).String(),
+		src: MustResolveUDPAddr(GetIPAddr(*addr), uint16(port)).String(),
+		dst: MustResolveUDPAddr(GetIPAddr(*destAddr), uint16(destPort)).String(),
 	}
 	conn, found := udpConns.Load(connId)
 	if !found {
@@ -41,7 +41,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			port,
 			destPort)
 		if err != nil {
-			log.Printf("failed to create UDP connection %v:%v->%v:%v: %v", GetIP4Addr(*addr), uint16(port), GetIP4Addr(*destAddr), uint16(destPort), err)
+			log.Printf("failed to create UDP connection %v:%v->%v:%v: %v", GetIPAddr(*addr), uint16(port), GetIPAddr(*destAddr), uint16(destPort), err)
 			return
 		}
 		udpConns.Store(connId, conn)

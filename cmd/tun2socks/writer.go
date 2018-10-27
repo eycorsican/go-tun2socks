@@ -46,7 +46,8 @@ type routingAwareWriter struct {
 func (w *routingAwareWriter) Write(buf []byte) (int, error) {
 	ipVersion := route.PeekIPVersion(buf)
 	if ipVersion == route.IPVERSION_6 {
-		return 0, errors.New("IPv6 not supported")
+		// TODO No IPv6 support currently
+		return w.writer.Write(buf)
 	}
 
 	protocol := route.PeekProtocol(buf)

@@ -3,32 +3,55 @@ package core
 /*
 #cgo CFLAGS: -I./src/include
 #include "lwip/tcp.h"
-
-char*
-get_ip4addr(ip_addr_t ipaddr)
-{
-	return ip4addr_ntoa(&ipaddr.u_addr.ip4);
-}
 */
 import "C"
 import (
 	"fmt"
+	"log"
 	"net"
 	"sync"
 )
 
-func GetIP4Addr(ipaddr C.struct_ip_addr) string {
-	return C.GoString(C.get_ip4addr(ipaddr))
+func GetIPAddr(ipaddr C.struct_ip_addr) string {
+	return C.GoString(C.ipaddr_ntoa(&ipaddr))
 }
 
 func MustResolveTCPAddr(addr string, port uint16) net.Addr {
-	netAddr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
-	return netAddr
+	ip := net.ParseIP(addr).To4()
+	if ip != nil {
+		// Seems an IPv4 address.
+		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
+		if err != nil {
+			log.Fatalf("resolve address failed: %v", err)
+		}
+		return netAddr
+	} else {
+		// Seems an IPv6 address.
+		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("[%s]:%d", addr, port))
+		if err != nil {
+			log.Fatalf("resolve address failed: %v", err)
+		}
+		return netAddr
+	}
 }
 
 func MustResolveUDPAddr(addr string, port uint16) net.Addr {
-	netAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
-	return netAddr
+	ip := net.ParseIP(addr).To4()
+	if ip != nil {
+		// Seems an IPv4 address.
+		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
+		if err != nil {
+			log.Fatalf("resolve address failed: %v", err)
+		}
+		return netAddr
+	} else {
+		// Seems an IPv6 address.
+		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("[%s]:%d", addr, port))
+		if err != nil {
+			log.Fatalf("resolve address failed: %v", err)
+		}
+		return netAddr
+	}
 }
 
 func GetSyncMapLen(m sync.Map) int {
