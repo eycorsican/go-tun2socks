@@ -50,7 +50,7 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, pc *net.UDPConn) {
 }
 
 func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
-	bindAddr := &net.UDPAddr{IP: net.IP{0, 0, 0, 0}, Port: 0}
+	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := net.ListenUDP("udp", bindAddr)
 	if err != nil {
 		log.Printf("failed to bind udp address")

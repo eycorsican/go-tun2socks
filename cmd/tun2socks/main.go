@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -51,16 +50,13 @@ func main() {
 
 	flag.Parse()
 
-	parts := strings.Split(*proxyServer, ":")
-	if len(parts) != 2 {
-		log.Fatal("invalid server address")
-	}
-	proxyAddr := parts[0]
-	port, err := strconv.Atoi(parts[1])
+	// Verify proxy server address.
+	proxyAddr, err := net.ResolveTCPAddr("tcp", *proxyServer)
 	if err != nil {
-		log.Fatal("invalid server port")
+		log.Fatalf("invalid proxy server address: %v", err)
 	}
-	proxyPort := uint16(port)
+	proxyHost := proxyAddr.IP.String()
+	proxyPort := uint16(proxyAddr.Port)
 
 	// Open the tun device.
 	dnsServers := strings.Split(*dnsServer, ",")
@@ -84,15 +80,15 @@ func main() {
 		core.RegisterUDPConnectionHandler(echo.NewUDPHandler())
 		break
 	case "socks":
-		core.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyAddr, proxyPort))
-		core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyAddr, proxyPort, *udpTimeout))
+		core.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyHost, proxyPort))
+		core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyHost, proxyPort, *udpTimeout))
 		break
 	case "shadowsocks":
 		if *proxyCipher == "" || *proxyPassword == "" {
 			log.Fatal("invalid cipher or password")
 		}
-		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword))
-		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(net.JoinHostPort(proxyAddr, strconv.Itoa(int(proxyPort))), *proxyCipher, *proxyPassword, *udpTimeout))
+		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(core.MustResolveTCPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword))
+		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.MustResolveUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout))
 		break
 	case "v2ray":
 		configBytes, err := ioutil.ReadFile(*vconfig)
@@ -136,13 +132,13 @@ func main() {
 		log.Fatal("unsupported proxy type")
 	}
 
-	// Register an output function to write packets output from lwip stack to tun
+	// Register an output callback to write packets output from lwip stack to tun
 	// device, output function should be set before input any packets.
 	core.RegisterOutputFn(func(data []byte) (int, error) {
 		return tunDev.Write(data)
 	})
 
-	// Copy packets from tun device to lwip stack.
+	// Copy packets from tun device to lwip stack, it's the main loop.
 	go func() {
 		_, err := io.CopyBuffer(lwipWriter, tunDev, make([]byte, MTU))
 		if err != nil {

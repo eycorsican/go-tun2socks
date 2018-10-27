@@ -85,7 +85,7 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.Conn) {
 }
 
 func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
-	c, err := net.Dial("tcp", fmt.Sprintf("%s:%d", h.proxyHost, h.proxyPort))
+	c, err := net.Dial("tcp", core.MustResolveTCPAddr(h.proxyHost, h.proxyPort).String())
 	if err != nil {
 		return err
 	}
