@@ -16,9 +16,9 @@ Tested and worked on macOS, Linux, Windows and iOS (as a library).
                                            |
                                            |                TCP/UDP             core.RegisterTCPConnectionHandler()
                                            |
-                          core.Input()     |           tun2socks.Connection     core.RegisterUDPConnectionHandler()
+                          core.Input()     |           core.Connection     core.RegisterUDPConnectionHandler()
                                            v
-Application +------> TUN +-----------> lwIP stack +------------------------------> tun2socks.ConnectionHandler +-------> Remote proxy server +--> Destination
+Application +------> TUN +-----------> lwIP stack +------------------------------> core.ConnectionHandler +-------> Remote proxy server +--> Destination
 
 
                          <-----------+
@@ -28,8 +28,9 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 
 ## Features
 
-- Support both TCP and UDP (only IPv4 for now)
-- Supported proxy handlers: SOCKS5, Shadowsocks, V2Ray
+- Support both TCP and UDP
+- Support both IPv4 and IPv6
+- Support proxy handlers: SOCKS5, Shadowsocks, V2Ray
 - DNS cache
 - UDP direct relaying (design for iOS and may not usable on other platforms)
 - ICMP local echoing
@@ -156,7 +157,6 @@ route add 1.2.3.4 192.168.0.1 metric 5
 
 ## TODO
 - Built-in routing rules and routing table management
-- Support IPv6
 - Support ICMP packets forwarding
 
 ## This project is using lwIP 
