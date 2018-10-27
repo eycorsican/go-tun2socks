@@ -16,7 +16,7 @@ Tested and worked on macOS, Linux, Windows and iOS (as a library).
                                            |
                                            |                TCP/UDP             core.RegisterTCPConnectionHandler()
                                            |
-                          core.Input()     |           core.Connection     core.RegisterUDPConnectionHandler()
+                          core.Input()     |           core.Connection          core.RegisterUDPConnectionHandler()
                                            v
 Application +------> TUN +-----------> lwIP stack +------------------------------> core.ConnectionHandler +-------> Remote proxy server +--> Destination
 
@@ -30,10 +30,8 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 
 - Support both TCP and UDP
 - Support both IPv4 and IPv6
-- Support proxy handlers: SOCKS5, Shadowsocks, V2Ray
-- DNS cache
-- UDP direct relaying (design for iOS and may not usable on other platforms)
-- ICMP local echoing
+- Support ICMP local echoing with configurable packet delay time
+- Support proxy handlers: `SOCKS5`, `Shadowsocks`, `V2Ray` (DNS cache is enabled in these handlers by default)
 - Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
 
 ## Build
