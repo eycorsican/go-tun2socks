@@ -22,10 +22,8 @@ type tcpConn struct {
 	pcb         *C.struct_tcp_pcb
 	handler     ConnectionHandler
 	network     string
-	remoteAddr  string
-	remotePort  uint16
-	localAddr   string
-	localPort   uint16
+	remoteAddr  net.Addr
+	localAddr   net.Addr
 	connKeyArg  unsafe.Pointer
 	connKey     uint32
 	closing     bool
@@ -67,10 +65,8 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		pcb:             pcb,
 		handler:         handler,
 		network:         "tcp",
-		remoteAddr:      GetIPAddr(pcb.local_ip),
-		remotePort:      uint16(pcb.local_port),
-		localAddr:       GetIPAddr(pcb.remote_ip),
-		localPort:       uint16(pcb.remote_port),
+		localAddr:       ParseTCPAddr(IPAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
+		remoteAddr:      ParseTCPAddr(IPAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
 		connKeyArg:      connKeyArg,
 		connKey:         connKey,
 		closing:         false,
@@ -103,11 +99,11 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 }
 
 func (conn *tcpConn) RemoteAddr() net.Addr {
-	return MustResolveTCPAddr(conn.remoteAddr, conn.remotePort)
+	return conn.remoteAddr
 }
 
 func (conn *tcpConn) LocalAddr() net.Addr {
-	return MustResolveTCPAddr(conn.localAddr, conn.localPort)
+	return conn.localAddr
 }
 
 func (conn *tcpConn) Receive(data []byte) error {

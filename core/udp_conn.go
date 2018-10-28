@@ -16,18 +16,22 @@ import (
 type udpConn struct {
 	pcb        *C.struct_udp_pcb
 	handler    ConnectionHandler
-	remoteAddr C.ip_addr_t
-	localAddr  C.ip_addr_t
+	localAddr  net.Addr
+	remoteAddr net.Addr
+	localIP    C.ip_addr_t
+	remoteIP   C.ip_addr_t
 	remotePort C.u16_t
 	localPort  C.u16_t
 }
 
-func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localAddr, remoteAddr C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
+func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
 	conn := &udpConn{
 		handler:    handler,
 		pcb:        pcb,
-		localAddr:  localAddr,
-		remoteAddr: remoteAddr,
+		localAddr:  ParseUDPAddr(IPAddrNTOA(localIP), uint16(localPort)),
+		remoteAddr: ParseUDPAddr(IPAddrNTOA(remoteIP), uint16(remotePort)),
+		localIP:    localIP,
+		remoteIP:   remoteIP,
 		localPort:  localPort,
 		remotePort: remotePort,
 	}
@@ -39,11 +43,11 @@ func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localAdd
 }
 
 func (conn *udpConn) RemoteAddr() net.Addr {
-	return MustResolveUDPAddr(GetIPAddr(conn.remoteAddr), uint16(conn.remotePort))
+	return conn.remoteAddr
 }
 
 func (conn *udpConn) LocalAddr() net.Addr {
-	return MustResolveUDPAddr(GetIPAddr(conn.localAddr), uint16(conn.localPort))
+	return conn.localAddr
 }
 
 func (conn *udpConn) Receive(data []byte) error {
@@ -60,7 +64,7 @@ func (conn *udpConn) Write(data []byte) (int, error) {
 	}
 
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
-	C.udp_sendto(conn.pcb, buf, &conn.localAddr, conn.localPort, &conn.remoteAddr, conn.remotePort)
+	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &conn.remoteIP, conn.remotePort)
 
 	return len(data), nil
 }

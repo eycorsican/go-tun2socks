@@ -52,7 +52,7 @@ func (h *tcpHandler) getConn(conn core.Connection) (net.Conn, bool) {
 }
 
 func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
-	dialer, err := proxy.SOCKS5("tcp", core.MustResolveTCPAddr(h.proxyHost, h.proxyPort).String(), nil, nil)
+	dialer, err := proxy.SOCKS5("tcp", core.ParseTCPAddr(h.proxyHost, h.proxyPort).String(), nil, nil)
 	if err != nil {
 		return err
 	}

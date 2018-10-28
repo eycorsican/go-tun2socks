@@ -3,6 +3,7 @@ package core
 /*
 #cgo CFLAGS: -I./src/include
 #include "lwip/tcp.h"
+#include <stdlib.h>
 */
 import "C"
 import (
@@ -10,50 +11,63 @@ import (
 	"log"
 	"net"
 	"sync"
+	"unsafe"
 )
 
-func GetIPAddr(ipaddr C.struct_ip_addr) string {
+// ipaddr_ntoa() is using a global static buffer to return result,
+// reentrants are not allowed, caller is required to lock lwipMutex.
+func IPAddrNTOA(ipaddr C.struct_ip_addr) string {
 	return C.GoString(C.ipaddr_ntoa(&ipaddr))
 }
 
-func MustResolveTCPAddr(addr string, port uint16) net.Addr {
+func IPAddrATON(cp string, addr *C.struct_ip_addr) {
+	ccp := C.CString(cp)
+	C.ipaddr_aton(ccp, addr)
+	C.free(unsafe.Pointer(ccp))
+}
+
+func ParseTCPAddr(addr string, port uint16) net.Addr {
 	ip := net.ParseIP(addr).To4()
 	if ip != nil {
 		// Seems an IPv4 address.
 		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
-			// TODO: Encountering addresses failed to resolve, and they are even not valid
-			// IP addresses, no idea why they come in, better handling is needed.
-			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
-		}
-		return netAddr
-	} else {
-		// Seems an IPv6 address.
-		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("[%s]:%d", addr, port))
-		if err != nil {
-			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
+			log.Fatalf("resolve TCP address %s:%d failed: %v", addr, port, err)
 		}
 		return netAddr
 	}
+	ip = net.ParseIP(addr).To16()
+	if ip != nil {
+		// Seems an IPv6 address.
+		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("[%s]:%d", addr, port))
+		if err != nil {
+			log.Fatalf("resolve TCP address %s:%d failed: %v", addr, port, err)
+		}
+		return netAddr
+	}
+	return nil
 }
 
-func MustResolveUDPAddr(addr string, port uint16) net.Addr {
+func ParseUDPAddr(addr string, port uint16) net.Addr {
 	ip := net.ParseIP(addr).To4()
 	if ip != nil {
 		// Seems an IPv4 address.
 		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
-			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
-		}
-		return netAddr
-	} else {
-		// Seems an IPv6 address.
-		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("[%s]:%d", addr, port))
-		if err != nil {
-			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
+			log.Fatalf("resolve UDP address %s:%d failed: %v", addr, port, err)
 		}
 		return netAddr
 	}
+	ip = net.ParseIP(addr).To16()
+	if ip != nil {
+		// Seems an IPv6 address.
+		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("[%s]:%d", addr, port))
+		if err != nil {
+			log.Fatalf("resolve UDP address %s:%d failed: %v", addr, port, err)
+		}
+		return netAddr
+	}
+	return nil
 }
 
 func GetSyncMapLen(m sync.Map) int {

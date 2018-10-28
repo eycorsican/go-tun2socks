@@ -26,7 +26,7 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 
 	conn, err2 := NewTCPConnection(newpcb, tcpConnectionHandler)
 	if err2 != nil {
-		log.Printf("failed to create TCP connection %v:%v->%v:%v: %v", GetIPAddr(newpcb.local_ip), uint16(newpcb.local_port), GetIPAddr(newpcb.remote_ip), uint16(newpcb.remote_port), err2)
+		log.Printf("failed to create TCP connection %v:%v->%v:%v: %v", IPAddrNTOA(newpcb.local_ip), uint16(newpcb.local_port), IPAddrNTOA(newpcb.remote_ip), uint16(newpcb.remote_port), err2)
 		return C.ERR_OK
 	}
 
