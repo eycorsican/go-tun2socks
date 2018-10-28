@@ -22,14 +22,16 @@ func MustResolveTCPAddr(addr string, port uint16) net.Addr {
 		// Seems an IPv4 address.
 		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
-			log.Fatalf("resolve address failed: %v", err)
+			// TODO: Encountering addresses failed to resolve, and they are even not valid
+			// IP addresses, no idea why they come in, better handling is needed.
+			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
 		}
 		return netAddr
 	} else {
 		// Seems an IPv6 address.
 		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("[%s]:%d", addr, port))
 		if err != nil {
-			log.Fatalf("resolve address failed: %v", err)
+			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
 		}
 		return netAddr
 	}
@@ -41,14 +43,14 @@ func MustResolveUDPAddr(addr string, port uint16) net.Addr {
 		// Seems an IPv4 address.
 		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
-			log.Fatalf("resolve address failed: %v", err)
+			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
 		}
 		return netAddr
 	} else {
 		// Seems an IPv6 address.
 		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("[%s]:%d", addr, port))
 		if err != nil {
-			log.Fatalf("resolve address failed: %v", err)
+			log.Fatalf("resolve address %s:%d failed: %v", addr, port, err)
 		}
 		return netAddr
 	}

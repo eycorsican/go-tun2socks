@@ -50,6 +50,10 @@ func (w *routingAwareWriter) Write(buf []byte) (int, error) {
 		return w.writer.Write(buf)
 	}
 
+	if ipVersion != route.IPVERSION_4 && ipVersion != route.IPVERSION_6 {
+		log.Fatal("not an IP packet: %v", buf)
+	}
+
 	protocol := route.PeekProtocol(buf)
 	if protocol != "tcp" && protocol != "udp" {
 		return w.writer.Write(buf)
@@ -74,6 +78,13 @@ func (w *routingAwareWriter) Write(buf []byte) (int, error) {
 	if err == nil && tag == "direct" {
 		err := route.AddRoute(dest.Address.String(), "255.255.255.255", w.gateway)
 		if err == nil {
+			// Discarding the packet so it will bed retransmitted, and hopefully retransmitted packets will
+			// use the new route.
+			//
+			// TODO: On macOS, it appears that even though the route is added to the routing table, subsequent
+			// retransmitted packets will continue using the old routing policy. Local client must create a new
+			// socket for utilizing the new route. Other platforms are not tested.
+			// Maybe this helps: https://www.unix.com/man-page/osx/4/route/
 			log.Printf("added a direct route for destination %v, packets need re-routing, dropped", dest)
 			return len(buf), nil
 		} else {
