@@ -107,6 +107,6 @@ copy:
 	$(call copy_files)
 
 clean:
-	$(GOCLEAN) -cache
+	# $(GOCLEAN) -cache
 	rm -rf $(BUILDDIR)
 	$(call clear_files)
