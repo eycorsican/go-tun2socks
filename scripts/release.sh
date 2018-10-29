@@ -8,11 +8,18 @@ tag=v1.7
 description="- Support IPv6 on macOS and Linux\n- Utilizing V2Ray's DNS client for DNS resolving"
 list_assets_cmd="ls -1 build/*.zip"
 token=
-
 if [ -z ${GITHUB_API_TOKEN+x} ]; then
 	read -p 'Input the github API token:' token
 else
 	token=$GITHUB_API_TOKEN
+fi
+
+declare -a executables=("tun2socks-darwin-10.6-amd64" "tun2socks-linux-amd64" "tun2socks-windows-4.0-amd64.exe")
+eval $list_assets_cmd
+if [ $? -ne 0 ]; then
+	for i in ${executables[@]}; do
+		zip "build/$i.zip" "build/$i"
+	done
 fi
 
 owner=eycorsican
