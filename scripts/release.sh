@@ -4,11 +4,17 @@
 
 set -x
 
-tag=v1.6
-description="Adding routes before packets input to lwIP."
+tag=v1.7
+description="- Support IPv6 on macOS and Linux\n- Utilizing V2Ray's DNS client for DNS resolving"
 list_assets_cmd="ls -1 build/*.zip"
+token=
 
-token=$GITHUB_API_TOKEN
+if [ -z ${GITHUB_API_TOKEN+x} ]; then
+	read -p 'Input the github API token:' token
+else
+	token=$GITHUB_API_TOKEN
+fi
+
 owner=eycorsican
 repo=go-tun2socks
 base_url=https://api.github.com
