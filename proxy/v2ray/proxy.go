@@ -4,39 +4,183 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/miekg/dns"
 	vcore "v2ray.com/core"
 	vnet "v2ray.com/core/common/net"
 	vsession "v2ray.com/core/common/session"
+	vdns "v2ray.com/core/features/dns"
 
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
+func isIPv4(ip net.IP) bool {
+	if ip.To4() != nil {
+		return true
+	}
+	return false
+}
+
+func isIPv6(ip net.IP) bool {
+	// To16() also valid for ipv4, ensure it's not an ipv4 address
+	if ip.To4() != nil {
+		return false
+	}
+	if ip.To16() != nil {
+		return true
+	}
+	return false
+}
+
 type connEntry struct {
-	conn   net.Conn
-	target vnet.Destination
+	conn                net.Conn
+	target              vnet.Destination
+	cancelFetchingInput context.CancelFunc
+	fetchingInputCtx    context.Context
+}
+
+type dnsRespEntry struct {
+	err  error
+	data []byte
+	conn core.Connection
 }
 
 type handler struct {
 	sync.Mutex
 
-	ctx      context.Context
-	v        *vcore.Instance
-	conns    map[core.Connection]*connEntry
-	dnsCache *proxy.DNSCache
+	ctx        context.Context
+	v          *vcore.Instance
+	conns      map[core.Connection]*connEntry
+	dispatched map[core.Connection]bool
+	dnsRespCh  chan *dnsRespEntry
+	dnsClient  vdns.Client
+}
+
+func (h *handler) shouldAcceptDNSQuery(data []byte) bool {
+	req := new(dns.Msg)
+	err := req.Unpack(data)
+	if err != nil {
+		return false
+	}
+
+	// TODO: allow multiple question
+	if len(req.Question) != 1 {
+		return false
+	}
+
+	qtype := req.Question[0].Qtype
+	if qtype != dns.TypeA && qtype != dns.TypeAAAA {
+		return false
+	}
+
+	fqdn := req.Question[0].Name
+	domain := fqdn[:len(fqdn)-1]
+
+	if _, ok := dns.IsDomainName(domain); !ok {
+		return false
+	}
+
+	return true
+}
+
+func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
+	var err error
+	var answer []byte = nil
+	defer func() {
+		h.dnsRespCh <- &dnsRespEntry{conn: conn, data: answer, err: err}
+	}()
+
+	req := new(dns.Msg)
+	err = req.Unpack(data)
+	if err != nil {
+		// TODO checks should already done in shouldAcceptDNSQeury(), can't be failed.
+		// Leaving them for debugging purposes, remove later.
+		log.Fatal(errors.New(fmt.Sprintf("unpacking dns msg failed: %v", err)))
+	}
+	if len(req.Question) == 0 {
+		log.Fatal(errors.New("no question in dns msg"))
+	}
+	qtype := req.Question[0].Qtype
+	if qtype != dns.TypeA && qtype != dns.TypeAAAA {
+		log.Fatal(errors.New(fmt.Sprintf("not A or AAAA query type, qtype: %v", qtype)))
+	}
+	fqdn := req.Question[0].Name
+	domain := fqdn[:len(fqdn)-1]
+
+	ips, err := h.dnsClient.LookupIP(domain)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
+		return
+	}
+
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	// resp.Authoritative = true
+	resp.RecursionAvailable = true
+	for _, ip := range ips {
+		if isIPv4(ip) && qtype == dns.TypeA {
+			resp.Answer = append(resp.Answer, &dns.A{
+				Hdr: dns.RR_Header{
+					Name:     fqdn,
+					Rrtype:   dns.TypeA,
+					Class:    dns.ClassINET,
+					Ttl:      1, // cached in V2Ray
+					Rdlength: 4,
+				},
+				A: ip,
+			})
+		} else if isIPv6(ip) && qtype == dns.TypeAAAA {
+			resp.Answer = append(resp.Answer, &dns.AAAA{
+				Hdr: dns.RR_Header{
+					Name:     fqdn,
+					Rrtype:   dns.TypeAAAA,
+					Class:    dns.ClassINET,
+					Ttl:      1, // cached in V2Ray
+					Rdlength: 16,
+				},
+				AAAA: ip,
+			})
+		}
+	}
+	if len(resp.Answer) == 0 {
+		err = errors.New("no answer")
+		return
+	}
+	buf := core.NewBytes(core.BufSize)
+	defer core.FreeBytes(buf)
+	dnsAnswer, err := resp.PackBuffer(buf)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("packing dns resp msg failed: %v", err))
+	} else {
+		answer = append([]byte(nil), dnsAnswer...)
+	}
+	return
+}
+
+func (h *handler) handleDNSResponse() {
+	for {
+		select {
+		case respEntry := <-h.dnsRespCh:
+			if respEntry.err == nil {
+				_, err := respEntry.conn.Write(respEntry.data)
+				if err != nil {
+					log.Printf("write dns response to local failed: %v", err)
+				}
+			} else {
+				log.Printf("dispatch dns request failed: %v", respEntry.err)
+			}
+			h.Close(respEntry.conn)
+			respEntry.conn.Close()
+		}
+	}
 }
 
 func (h *handler) fetchInput(conn core.Connection) {
-	defer func() {
-		h.Close(conn)
-		conn.Close() // also close tun2socks connection here
-	}()
-
 	h.Lock()
 	c, ok := h.conns[conn]
 	h.Unlock()
@@ -44,39 +188,52 @@ func (h *handler) fetchInput(conn core.Connection) {
 		return
 	}
 
-	// Seems a DNS response, cache it
-	if c.target.Network == vnet.Network_UDP && c.target.Port.Value() == proxy.COMMON_DNS_PORT {
-		buf := core.NewBytes(core.BufSize)
-		defer core.FreeBytes(buf)
-		for {
-			n, err := c.conn.Read(buf)
-			if err != nil {
-				log.Printf("fetch input failed: %v", err)
+	buf := core.NewBytes(core.BufSize)
+
+FetchingLoop:
+	for {
+		c.conn.SetReadDeadline(time.Now().Add(4 * time.Second))
+		n, err := c.conn.Read(buf)
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			select {
+			case <-c.fetchingInputCtx.Done():
+				core.FreeBytes(buf)
+				// Request was handed to V2Ray, stop fetching but leave the
+				// connection open.
 				return
+			default:
+				continue FetchingLoop
 			}
-			_, err = conn.Write(buf[:n])
-			if err != nil {
-				log.Printf("write local failed: %v", err)
-				return
-			}
-			h.dnsCache.Store(buf[:n])
-			return // DNS responses
 		}
-	} else {
-		_, err := io.Copy(conn, c.conn)
 		if err != nil {
 			log.Printf("fetch input failed: %v", err)
+			h.Close(conn)
+			conn.Close()
+			core.FreeBytes(buf)
+			return
+		}
+		_, err = conn.Write(buf[:n])
+		if err != nil {
+			log.Printf("write local failed: %v", err)
+			h.Close(conn)
+			conn.Close()
+			core.FreeBytes(buf)
+			return
 		}
 	}
 }
 
 func NewHandler(ctx context.Context, instance *vcore.Instance) core.ConnectionHandler {
-	return &handler{
-		ctx:      ctx,
-		v:        instance,
-		conns:    make(map[core.Connection]*connEntry, 16),
-		dnsCache: proxy.NewDNSCache(),
+	h := &handler{
+		ctx:        ctx,
+		v:          instance,
+		conns:      make(map[core.Connection]*connEntry, 16),
+		dnsRespCh:  make(chan *dnsRespEntry, 1024),
+		dispatched: make(map[core.Connection]bool, 16),
+		dnsClient:  instance.GetFeature(vdns.ClientType()).(vdns.Client),
 	}
+	go h.handleDNSResponse()
+	return h
 }
 
 func (h *handler) Connect(conn core.Connection, target net.Addr) error {
@@ -87,8 +244,16 @@ func (h *handler) Connect(conn core.Connection, target net.Addr) error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial V proxy connection failed: %v", err))
 	}
+	// Note that ctx here is used for canceling fetching input goroutine, not
+	// canceling the connection, thus create the cancelable context after Dial().
+	ctx, cancel := context.WithCancel(ctx)
 	h.Lock()
-	h.conns[conn] = &connEntry{conn: c, target: dest}
+	h.conns[conn] = &connEntry{
+		conn:                c,
+		target:              dest,
+		cancelFetchingInput: cancel,
+		fetchingInputCtx:    ctx,
+	}
 	h.Unlock()
 	go h.fetchInput(conn)
 	return nil
@@ -97,28 +262,40 @@ func (h *handler) Connect(conn core.Connection, target net.Addr) error {
 func (h *handler) DidReceive(conn core.Connection, data []byte) error {
 	h.Lock()
 	c, ok := h.conns[conn]
+	done, ok2 := h.dispatched[conn]
 	h.Unlock()
+	if ok2 && done {
+		// Request already dispatched to V2Ray, ignore.
+		return nil
+	}
 	if ok {
-		// Seems a DNS request, try to find the record in the cache first.
-		if c.target.Network == vnet.Network_UDP && c.target.Port.Value() == proxy.COMMON_DNS_PORT {
-			if answer := h.dnsCache.Query(data); answer != nil {
-				var buf [1024]byte
-				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {
-					_, err = conn.Write(dnsAnswer)
-					if err != nil {
-						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
-					}
-					h.Close(conn)
-					conn.Close() // also close tun2socks connection here
-					return nil
-				}
-			}
-		}
+		// If it's a DNS request of type A or AAAA and has only one question,
+		// handle it with V2Ray's DNS client, otherwise treat as normal TCP/UDP
+		// traffic.
+		if c.target.Network == vnet.Network_UDP &&
+			c.target.Port.Value() == proxy.COMMON_DNS_PORT &&
+			h.shouldAcceptDNSQuery(data) {
 
-		_, err := c.conn.Write(data)
-		if err != nil {
-			h.Close(conn)
-			return errors.New(fmt.Sprintf("write remote failed: %v", err))
+			// Parse DNS request and hand to V2Ray, upon V2Ray returns []net.IP,
+			// packing them into dns.Msg response message and write back to the client.
+			go h.handleDNSQuery(conn, append([]byte(nil), data...))
+
+			// The DNS request has passed to V2Ray for handling, we are safe
+			// to cancel the fetching goroutine, but be careful do not close the
+			// connection.
+			c.cancelFetchingInput()
+
+			h.Lock()
+			// The request is successfully handed to V2Ray, mark as dispatched so
+			// subsequent retransmissions should be ignored.
+			h.dispatched[conn] = true
+			h.Unlock()
+		} else {
+			_, err := c.conn.Write(data)
+			if err != nil {
+				h.Close(conn)
+				return errors.New(fmt.Sprintf("write remote failed: %v", err))
+			}
 		}
 		return nil
 	} else {
