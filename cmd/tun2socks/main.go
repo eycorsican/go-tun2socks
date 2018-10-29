@@ -87,8 +87,8 @@ func main() {
 		if *proxyCipher == "" || *proxyPassword == "" {
 			log.Fatal("invalid cipher or password")
 		}
-		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(core.MustResolveTCPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword))
-		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.MustResolveUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout))
+		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(core.ParseTCPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword))
+		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout))
 		break
 	case "v2ray":
 		configBytes, err := ioutil.ReadFile(*vconfig)
