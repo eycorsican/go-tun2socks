@@ -1,116 +1,72 @@
 package tun
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"os"
+	"net"
 	"os/exec"
-	"sync"
-	"syscall"
-	"unsafe"
+	"strconv"
+	"strings"
+
+	"github.com/songgao/water"
 )
 
-const (
-	appleUTUNCtl     = "com.apple.net.utun_control"
-	appleCTLIOCGINFO = (0x40000000 | 0x80000000) | ((100 & 0x1fff) << 16) | uint32(byte('N'))<<8 | 3
-)
-
-type sockaddrCtl struct {
-	scLen      uint8
-	scFamily   uint8
-	ssSysaddr  uint16
-	scID       uint32
-	scUnit     uint32
-	scReserved [5]uint32
-}
-
-type utunDev struct {
-	f *os.File
-
-	readLock  sync.Mutex
-	writeLock sync.Mutex
-
-	rBuf [2048]byte
-	wBuf [2048]byte
-}
-
-func (dev *utunDev) Read(data []byte) (int, error) {
-	dev.readLock.Lock()
-	defer dev.readLock.Unlock()
-
-	n, e := dev.f.Read(dev.rBuf[:])
-	if n > 0 {
-		copy(data, dev.rBuf[4:n])
-		n -= 4
+func isIPv4(ip net.IP) bool {
+	if ip.To4() != nil {
+		return true
 	}
-	return n, e
+	return false
 }
 
-// one packet, no more than MTU
-func (dev *utunDev) Write(data []byte) (int, error) {
-	dev.writeLock.Lock()
-	defer dev.writeLock.Unlock()
-
-	n := copy(dev.wBuf[4:], data)
-	return dev.f.Write(dev.wBuf[:n+4])
-}
-
-func (dev *utunDev) Close() error {
-	return dev.f.Close()
-}
-
-var sockaddrCtlSize uintptr = 32
-
-func OpenTunDevice(name, addr, gw, mask string, dns []string) (io.ReadWriteCloser, error) {
-	fd, err := syscall.Socket(syscall.AF_SYSTEM, syscall.SOCK_DGRAM, 2)
-	if err != nil {
-		return nil, err
+func isIPv6(ip net.IP) bool {
+	// To16() also valid for ipv4, ensure it's not an ipv4 address
+	if ip.To4() != nil {
+		return false
 	}
-
-	var ctlInfo = &struct {
-		ctlID   uint32
-		ctlName [96]byte
-	}{}
-	copy(ctlInfo.ctlName[:], []byte(appleUTUNCtl))
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(appleCTLIOCGINFO), uintptr(unsafe.Pointer(ctlInfo)))
-	if errno != 0 {
-		return nil, fmt.Errorf("error in syscall.Syscall(syscall.SYS_IOTL, ...): %v", errno)
+	if ip.To16() != nil {
+		return true
 	}
-	addrP := unsafe.Pointer(&sockaddrCtl{
-		scLen:    uint8(sockaddrCtlSize),
-		scFamily: syscall.AF_SYSTEM,
-		/* #define AF_SYS_CONTROL 2 */
-		ssSysaddr: 2,
-		scID:      ctlInfo.ctlID,
-		scUnit:    0,
+	return false
+}
+
+func OpenTunDevice(name, addr, gw, mask string, dnsServers []string) (io.ReadWriteCloser, error) {
+	tunDev, err := water.New(water.Config{
+		DeviceType: water.TUN,
 	})
-	_, _, errno = syscall.RawSyscall(syscall.SYS_CONNECT, uintptr(fd), uintptr(addrP), uintptr(sockaddrCtlSize))
-	if errno != 0 {
-		return nil, fmt.Errorf("error in syscall.RawSyscall(syscall.SYS_CONNECT, ...): %v", errno)
-	}
-
-	var ifName struct {
-		name [16]byte
-	}
-	ifNameSize := uintptr(16)
-	_, _, errno = syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd),
-		2, /* #define SYSPROTO_CONTROL 2 */
-		2, /* #define UTUN_OPT_IFNAME 2 */
-		uintptr(unsafe.Pointer(&ifName)),
-		uintptr(unsafe.Pointer(&ifNameSize)), 0)
-	if errno != 0 {
-		return nil, fmt.Errorf("error in syscall.Syscall6(syscall.SYS_GETSOCKOPT, ...): %v", errno)
-	}
-	cmd := exec.Command("ifconfig", string(ifName.name[:ifNameSize-1]), "inet", addr, gw, "netmask", mask, "mtu", "1500", "up")
-	err = cmd.Run()
+	name = tunDev.Name()
 	if err != nil {
-		syscall.Close(fd)
 		return nil, err
 	}
-
-	dev := &utunDev{
-		f: os.NewFile(uintptr(fd), string(ifName.name[:ifNameSize-1])),
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return nil, errors.New("invalid IP address")
 	}
-	copy(dev.wBuf[:], []byte{0, 0, 0, 2})
-	return dev, nil
+	if isIPv4(ip) {
+		cmd := fmt.Sprintf("%s inet %s netmask %s %s", name, addr, mask, gw)
+		out, err := exec.Command("ifconfig", strings.Split(cmd, " ")...).Output()
+		if err != nil {
+			if len(out) != 0 {
+				return nil, errors.New(fmt.Sprintf("%v, output: %s", err, out))
+			}
+			return nil, err
+		}
+		return tunDev, nil
+	} else if isIPv6(ip) {
+		prefixlen, err := strconv.Atoi(mask)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("parse IPv6 prefixlen failed: %v", err))
+		}
+		cmd := fmt.Sprintf("%s inet6 %s/%d", name, addr, prefixlen)
+		out, err := exec.Command("ifconfig", strings.Split(cmd, " ")...).Output()
+		if err != nil {
+			if len(out) != 0 {
+				return nil, errors.New(fmt.Sprintf("%v, output: %s", err, out))
+			}
+			return nil, err
+		}
+		return tunDev, nil
+	} else {
+		return nil, errors.New("invalid IP address")
+	}
 }
