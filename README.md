@@ -29,10 +29,11 @@ Application +------> TUN +-----------> lwIP stack +-----------------------------
 ## Features
 
 - Support both TCP and UDP
-- Support both IPv4 and IPv6
+- Support both IPv4 and IPv6 (but unfortunately, IPv6 still not usable on Windows because lacks of TUN support)
 - Support ICMP local echoing with configurable packet delay time
 - Support proxy handlers: `SOCKS5`, `Shadowsocks`, `V2Ray` (DNS cache is enabled in these handlers by default)
 - Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
+- Intercepting DNS requests and dispatching them with V2Ray's flexible DNS client (V2Ray proxy handler only)
 
 ## Build
 
@@ -152,6 +153,28 @@ route add 1.2.3.4 192.168.0.1 metric 5
 - To enable dynamic routing, just set the `-gateway` argument, for example: `tun2socks -proxyType v2ray -vconfig config.json -gateway 192.168.0.1`
 - The tag "direct" is hard coded to identify direct rules, which if dynamic routing is enabled, will indicate adding routes to the original gateway for the corresponding IP packets
 - Inbounds are not necessary
+- DNS requests will be intercepted and instead dispatching by V2Ray's DNS client, for this sake, you can have, for example, the following config to keep away from DNS poisoning and having inappropriate CDN IPs:
+```
+    "dns": {
+        "clientIP": "x.x.x.x",
+        "hosts": {
+            "localhost": "127.0.0.1",
+            "domain:lan": "127.0.0.1",
+            "domain:local": "127.0.0.1",
+            "domain:arpa": "127.0.0.1"
+        },
+        "servers": [
+            "8.8.8.8",
+            {
+                "address": "223.5.5.5",
+                "port": 53,
+                "domains": [
+                    "geosite:cn"
+                ]
+            }
+        ]
+    }
+```
 
 ## TODO
 - Built-in routing rules and routing table management
@@ -166,5 +189,7 @@ This project is using a modified version of lwIP, you can checkout this repo to 
 - https://github.com/ambrop72/badvpn
 - https://github.com/zhuhaow/tun2socks
 - https://github.com/yinghuocho/gotun2socks
+- https://github.com/v2ray/v2ray-core
 - https://github.com/shadowsocks/go-shadowsocks2
+- https://github.com/songgao/water
 - https://github.com/nadoo/glider
