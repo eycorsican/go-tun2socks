@@ -37,17 +37,17 @@ type tcpConn struct {
 	localWriteSubCh chan []byte
 }
 
-func checkTCPConns() {
-	tcpConns.Range(func(_, c interface{}) bool {
-		state := c.(*tcpConn).pcb.state
-		if c.(*tcpConn).pcb == nil ||
-			state == C.CLOSED ||
-			state == C.CLOSE_WAIT {
-			c.(*tcpConn).Release()
-		}
-		return true
-	})
-}
+// func checkTCPConns() {
+// 	tcpConns.Range(func(_, c interface{}) bool {
+// 		state := c.(*tcpConn).pcb.state
+// 		if c.(*tcpConn).pcb == nil ||
+// 			state == C.CLOSED ||
+// 			state == C.CLOSE_WAIT {
+// 			c.(*tcpConn).Release()
+// 		}
+// 		return true
+// 	})
+// }
 
 func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
 	// prepare key
@@ -81,7 +81,7 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	// Associate conn with key and save to the global map.
 	tcpConns.Store(connKey, conn)
 
-	go checkTCPConns()
+	// go checkTCPConns()
 
 	// Pass the key as arg for subsequent tcp callbacks.
 	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
