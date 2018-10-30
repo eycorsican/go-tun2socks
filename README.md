@@ -53,7 +53,6 @@ An alternative way to build (or cross compile) tun2socks is to use [`xgo`](https
 # install docker: https://docs.docker.com/install
 
 # install xgo
-docker pull karalabe/xgo-latest
 go get github.com/karalabe/xgo
 
 go get github.com/eycorsican/go-tun2socks

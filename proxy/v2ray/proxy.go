@@ -95,23 +95,14 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 		h.dnsRespCh <- &dnsRespEntry{conn: conn, data: answer, err: err}
 	}()
 
+	// No error checks here because they are already done in shouldAcceptDNSQuery()
 	req := new(dns.Msg)
-	err = req.Unpack(data)
-	if err != nil {
-		// TODO checks should already done in shouldAcceptDNSQeury(), can't be failed.
-		// Leaving them for debugging purposes, remove later.
-		log.Fatal(errors.New(fmt.Sprintf("unpacking dns msg failed: %v", err)))
-	}
-	if len(req.Question) == 0 {
-		log.Fatal(errors.New("no question in dns msg"))
-	}
+	req.Unpack(data)
 	qtype := req.Question[0].Qtype
-	if qtype != dns.TypeA && qtype != dns.TypeAAAA {
-		log.Fatal(errors.New(fmt.Sprintf("not A or AAAA query type, qtype: %v", qtype)))
-	}
 	fqdn := req.Question[0].Name
 	domain := fqdn[:len(fqdn)-1]
 
+	log.Printf("dispatch DNS request for domain: %v", domain)
 	ips, err := h.dnsClient.LookupIP(domain)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
@@ -120,7 +111,6 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 
 	resp := new(dns.Msg)
 	resp.SetReply(req)
-	// resp.Authoritative = true
 	resp.RecursionAvailable = true
 	for _, ip := range ips {
 		if isIPv4(ip) && qtype == dns.TypeA {
@@ -206,7 +196,7 @@ FetchingLoop:
 			}
 		}
 		if err != nil {
-			log.Printf("fetch input failed: %v", err)
+			// log.Printf("fetch input failed: %v", err)
 			h.Close(conn)
 			conn.Close()
 			core.FreeBytes(buf)
@@ -214,7 +204,7 @@ FetchingLoop:
 		}
 		_, err = conn.Write(buf[:n])
 		if err != nil {
-			log.Printf("write local failed: %v", err)
+			// log.Printf("write local failed: %v", err)
 			h.Close(conn)
 			conn.Close()
 			core.FreeBytes(buf)
@@ -256,6 +246,7 @@ func (h *handler) Connect(conn core.Connection, target net.Addr) error {
 	}
 	h.Unlock()
 	go h.fetchInput(conn)
+	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 

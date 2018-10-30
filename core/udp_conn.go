@@ -8,7 +8,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"log"
+	// "log"
 	"net"
 	"unsafe"
 )
@@ -80,7 +80,7 @@ func (conn *udpConn) Close() error {
 		dst: conn.RemoteAddr().String(),
 	}
 	udpConns.Delete(connId)
-	log.Printf("ended UDP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
+	// log.Printf("ended UDP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	return nil
 }
 

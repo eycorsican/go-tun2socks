@@ -85,7 +85,7 @@ func (w *routingAwareWriter) Write(buf []byte) (int, error) {
 			// retransmitted packets will continue using the old routing policy. Local client must create a new
 			// socket for utilizing the new route. Other platforms are not tested.
 			// Maybe this helps: https://www.unix.com/man-page/osx/4/route/
-			log.Printf("added a direct route for destination %v, packets need re-routing, dropped", dest)
+			// log.Printf("added a direct route for destination %v, packets need re-routing, dropped", dest)
 			return len(buf), nil
 		} else {
 			log.Printf("adding route for %v failed: %v", dest, err)

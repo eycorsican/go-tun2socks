@@ -7,7 +7,7 @@ package core
 */
 import "C"
 import (
-	"log"
+	// "log"
 	"sync"
 	"unsafe"
 )
@@ -35,12 +35,12 @@ func NewLWIPStack() LWIPStack {
 	case C.ERR_OK:
 		break
 	case C.ERR_VAL:
-		log.Fatal("invalid PCB state")
+		panic("invalid PCB state")
 	case C.ERR_USE:
-		log.Fatal("port in use")
+		panic("port in use")
 	default:
 		C.memp_free(C.MEMP_TCP_PCB, unsafe.Pointer(tcpPCB))
-		log.Fatal("unknown tcp_bind return value")
+		panic("unknown tcp_bind return value")
 	}
 
 	tcpPCB = C.tcp_listen_with_backlog(tcpPCB, C.TCP_DEFAULT_LISTEN_BACKLOG)
@@ -59,7 +59,7 @@ func NewLWIPStack() LWIPStack {
 
 	err = C.udp_bind(udpPCB, C.IP_ADDR_ANY, 0)
 	if err != C.ERR_OK {
-		log.Fatal("address already in use")
+		panic("address already in use")
 	}
 
 	SetUDPRecvCallback(udpPCB, nil)
