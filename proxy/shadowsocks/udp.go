@@ -60,7 +60,7 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.PacketConn) {
 		input.SetDeadline(time.Now().Add(h.timeout))
 		n, _, err := input.ReadFrom(buf)
 		if err != nil {
-			log.Printf("read remote failed: %v", err)
+			// log.Printf("read remote failed: %v", err)
 			return
 		}
 
@@ -99,6 +99,7 @@ func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
 	h.targetAddrs[conn] = sssocks.ParseAddr(target.String())
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
+	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 

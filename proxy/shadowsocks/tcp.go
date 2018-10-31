@@ -33,7 +33,8 @@ func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
 
 	_, err := io.Copy(conn, input)
 	if err != nil {
-		log.Printf("fetch input failed: %v", err)
+		// log.Printf("fetch input failed: %v", err)
+		return
 	}
 }
 
@@ -88,6 +89,7 @@ func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
 	h.tgtAddrs[conn] = target
 	h.Unlock()
 	rc.SetDeadline(time.Time{})
+	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 

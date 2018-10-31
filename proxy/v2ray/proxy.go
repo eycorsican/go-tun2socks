@@ -102,7 +102,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 	fqdn := req.Question[0].Name
 	domain := fqdn[:len(fqdn)-1]
 
-	log.Printf("dispatch DNS request for domain: %v", domain)
+	log.Printf("dispatch dns request for domain: %v", domain)
 	ips, err := h.dnsClient.LookupIP(domain)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
