@@ -107,6 +107,11 @@ copy:
 	$(call copy_files)
 
 clean:
-	# $(GOCLEAN) -cache
+	rm -rf $(BUILDDIR)
+	$(call clear_files)
+
+cleancache:
+	# go build cache may need to cleanup if changing C source code
+	$(GOCLEAN) -cache
 	rm -rf $(BUILDDIR)
 	$(call clear_files)
