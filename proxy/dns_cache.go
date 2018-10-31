@@ -78,7 +78,7 @@ func (c *DNSCache) Query(payload []byte) *dns.Msg {
 		return nil
 	}
 	entry.msg.Id = request.Id
-	log.Printf("got dns answer with key: %v", key)
+	// log.Printf("got dns answer with key: %v", key)
 	return entry.msg
 }
 
