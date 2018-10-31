@@ -306,6 +306,8 @@ func (conn *tcpConn) closeInternal() error {
 
 	conn.cancel()
 
+	// TODO: may return ERR_MEM if no memory to allocate segments use for closing the conn,
+	// should check and try again in Sent() for Poll() callbacks.
 	err := C.tcp_close(conn.pcb)
 	if err == C.ERR_OK {
 		return nil
