@@ -20,7 +20,12 @@ import (
 func Input(pkt []byte) (int, error) {
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_ROM)
 	lwipMutex.Lock()
-	C.input(buf)
+	err := C.input(buf)
+	if err != C.ERR_OK {
+		C.pbuf_free(buf)
+		// TODO
+		panic("why failed!?")
+	}
 	C.sys_check_timeouts()
 	lwipMutex.Unlock()
 	return len(pkt), nil
