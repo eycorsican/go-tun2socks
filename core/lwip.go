@@ -44,6 +44,9 @@ func NewLWIPStack() LWIPStack {
 	}
 
 	tcpPCB = C.tcp_listen_with_backlog(tcpPCB, C.TCP_DEFAULT_LISTEN_BACKLOG)
+	if tcpPCB == nil {
+		panic("can not allocate tcp pcb")
+	}
 
 	// We can't call C function with Go functions as arguments here, it will
 	// fail in compile time:
