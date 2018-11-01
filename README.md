@@ -26,7 +26,7 @@ Application +-> Routing table +-->                                              
                       ^          |                                                                                                    |
                       |          |                                                                                                    |
                       |          |                                   +------> Destination                                             |
-                      |          +-----------> Default gateway +-----+                                                                |
+                      |          +-----------> Original gateway +----+                                                                |
                       |                                              +------> Proxy server +--> Destination                           |
                       |                                                                                                               |
                       |                                                                                                               |
