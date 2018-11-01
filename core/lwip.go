@@ -7,7 +7,6 @@ package core
 */
 import "C"
 import (
-	// "log"
 	"sync"
 	"unsafe"
 )

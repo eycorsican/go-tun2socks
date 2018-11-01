@@ -8,7 +8,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	// "log"
 	"net"
 	"unsafe"
 )
@@ -62,10 +61,8 @@ func (conn *udpConn) Write(data []byte) (int, error) {
 	if conn.pcb == nil {
 		return 0, errors.New("nil udp pcb")
 	}
-
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
 	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &conn.remoteIP, conn.remotePort)
-
 	return len(data), nil
 }
 
@@ -80,7 +77,6 @@ func (conn *udpConn) Close() error {
 		dst: conn.RemoteAddr().String(),
 	}
 	udpConns.Delete(connId)
-	// log.Printf("ended UDP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	return nil
 }
 

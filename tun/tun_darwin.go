@@ -42,31 +42,26 @@ func OpenTunDevice(name, addr, gw, mask string, dnsServers []string) (io.ReadWri
 	if ip == nil {
 		return nil, errors.New("invalid IP address")
 	}
+
+	var params string
 	if isIPv4(ip) {
-		cmd := fmt.Sprintf("%s inet %s netmask %s %s", name, addr, mask, gw)
-		out, err := exec.Command("ifconfig", strings.Split(cmd, " ")...).Output()
-		if err != nil {
-			if len(out) != 0 {
-				return nil, errors.New(fmt.Sprintf("%v, output: %s", err, out))
-			}
-			return nil, err
-		}
-		return tunDev, nil
+		params = fmt.Sprintf("%s inet %s netmask %s %s", name, addr, mask, gw)
 	} else if isIPv6(ip) {
 		prefixlen, err := strconv.Atoi(mask)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("parse IPv6 prefixlen failed: %v", err))
 		}
-		cmd := fmt.Sprintf("%s inet6 %s/%d", name, addr, prefixlen)
-		out, err := exec.Command("ifconfig", strings.Split(cmd, " ")...).Output()
-		if err != nil {
-			if len(out) != 0 {
-				return nil, errors.New(fmt.Sprintf("%v, output: %s", err, out))
-			}
-			return nil, err
-		}
-		return tunDev, nil
+		params = fmt.Sprintf("%s inet6 %s/%d", name, addr, prefixlen)
 	} else {
 		return nil, errors.New("invalid IP address")
 	}
+
+	out, err := exec.Command("ifconfig", strings.Split(params, " ")...).Output()
+	if err != nil {
+		if len(out) != 0 {
+			return nil, errors.New(fmt.Sprintf("%v, output: %s", err, out))
+		}
+		return nil, err
+	}
+	return tunDev, nil
 }

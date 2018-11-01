@@ -6,7 +6,6 @@ package core
 */
 import "C"
 import (
-	// "log"
 	"unsafe"
 )
 
@@ -18,20 +17,11 @@ func Output(p *C.struct_pbuf) C.err_t {
 	if p.tot_len == p.len {
 		buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.len):int(p.len)]
 		OutputFn(buf)
-		// _, err := OutputFn(buf)
-		// if err != nil {
-		// 	log.Fatal("failed to output packets from stack: %v", err)
-		// }
 	} else {
 		buf := NewBytes(int(p.tot_len))
 		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0) // data copy here!
 		OutputFn(buf[:int(p.tot_len)])
-		// _, err := OutputFn(buf[:int(p.tot_len)])
 		FreeBytes(buf)
-		// if err != nil {
-		// 	log.Fatal("failed to output packets from stack: %v", err)
-		// }
 	}
-
 	return C.ERR_OK
 }

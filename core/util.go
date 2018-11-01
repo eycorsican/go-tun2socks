@@ -8,7 +8,6 @@ package core
 import "C"
 import (
 	"fmt"
-	// "log"
 	"net"
 	"sync"
 	"unsafe"
@@ -32,7 +31,6 @@ func ParseTCPAddr(addr string, port uint16) net.Addr {
 		// Seems an IPv4 address.
 		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
-			// log.Fatalf("resolve TCP address %s:%d failed: %v", addr, port, err)
 			return nil
 		}
 		return netAddr
@@ -42,7 +40,6 @@ func ParseTCPAddr(addr string, port uint16) net.Addr {
 		// Seems an IPv6 address.
 		netAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("[%s]:%d", addr, port))
 		if err != nil {
-			// log.Fatalf("resolve TCP address %s:%d failed: %v", addr, port, err)
 			return nil
 		}
 		return netAddr
@@ -56,7 +53,6 @@ func ParseUDPAddr(addr string, port uint16) net.Addr {
 		// Seems an IPv4 address.
 		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
-			// log.Fatalf("resolve UDP address %s:%d failed: %v", addr, port, err)
 			return nil
 		}
 		return netAddr
@@ -66,7 +62,6 @@ func ParseUDPAddr(addr string, port uint16) net.Addr {
 		// Seems an IPv6 address.
 		netAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("[%s]:%d", addr, port))
 		if err != nil {
-			// log.Fatalf("resolve UDP address %s:%d failed: %v", addr, port, err)
 			return nil
 		}
 		return netAddr

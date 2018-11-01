@@ -6,7 +6,6 @@ package core
 */
 import "C"
 import (
-	// "log"
 	"unsafe"
 )
 
@@ -19,7 +18,6 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	}()
 
 	if pcb == nil {
-		// log.Printf("udp_recv pcb is nil")
 		return
 	}
 
@@ -46,17 +44,10 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			port,
 			destPort)
 		if err != nil {
-			// log.Printf("failed to create UDP connection %v:%v->%v:%v: %v", srcAddr, dstAddr, err)
 			return
 		}
 		udpConns.Store(connId, conn)
-		// log.Printf("new UDP connection %v->%v", conn.(Connection).LocalAddr(), conn.(Connection).RemoteAddr())
 	}
-
-	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
-	// if p.tot_len != p.len {
-	// 	log.Fatal("udp_recv p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
-	// }
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
 	conn.(Connection).Receive(buf)

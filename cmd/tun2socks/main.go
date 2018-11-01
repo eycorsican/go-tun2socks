@@ -24,8 +24,6 @@ import (
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
 	"github.com/eycorsican/go-tun2socks/proxy/v2ray"
 	"github.com/eycorsican/go-tun2socks/tun"
-
-	_ "github.com/eycorsican/go-tun2socks/cmd/tun2socks/features"
 )
 
 const (

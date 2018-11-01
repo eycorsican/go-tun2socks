@@ -8,7 +8,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	// "log"
 	"unsafe"
 )
 
@@ -23,22 +22,16 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 	if err != C.ERR_OK {
 		return err
 	}
-
 	_, err2 := NewTCPConnection(newpcb, tcpConnectionHandler)
 	if err2 != nil {
-		// log.Printf("failed to create TCP connection %v:%v->%v:%v: %v", IPAddrNTOA(newpcb.local_ip), uint16(newpcb.local_port), IPAddrNTOA(newpcb.remote_ip), uint16(newpcb.remote_port), err2)
 		return C.ERR_CONN
 	}
-
-	// log.Printf("new TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
-
 	return C.ERR_OK
 }
 
 //export TCPRecvFn
 func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err C.err_t) C.err_t {
 	if err != C.ERR_OK && err != C.ERR_ABRT {
-		// log.Printf("receving data failed with lwip error code: %v", int(err))
 		return err
 	}
 
@@ -52,7 +45,6 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	conn, ok := tcpConns.Load(GetConnKeyVal(arg))
 	if !ok {
 		// The connection does not exists.
-		// log.Printf("connection does not exists")
 		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}
@@ -67,21 +59,11 @@ func TCPRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		}
 	}
 
-	// if tpcb == nil {
-	// 	log.Fatal("tcp_recv pcb is nil")
-	// }
-
-	// TODO: p.tot_len != p.len, have multiple pbuf in the chain?
-	// if p.tot_len != p.len {
-	// 	log.Fatal("tcp_recv p.tot_len != p.len (%v != %v)", p.tot_len, p.len)
-	// }
-
 	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
 	handlerErr := conn.(Connection).Receive(buf)
 
 	if handlerErr != nil {
-		// log.Printf("receive data failed: %v", handlerErr)
 		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}
@@ -99,7 +81,6 @@ func TCPSentFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, len C.u16_t) C.err_t 
 			return C.ERR_OK
 		}
 	} else {
-		// log.Printf("connection does not exists")
 		C.tcp_abort(tpcb)
 		return C.ERR_ABRT
 	}

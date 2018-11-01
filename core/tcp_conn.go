@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	// "log"
 	"math/rand"
 	"net"
 	"sync"
@@ -37,18 +36,6 @@ type tcpConn struct {
 	localWriteSubCh chan []byte
 }
 
-// func checkTCPConns() {
-// 	tcpConns.Range(func(_, c interface{}) bool {
-// 		state := c.(*tcpConn).pcb.state
-// 		if c.(*tcpConn).pcb == nil ||
-// 			state == C.CLOSED ||
-// 			state == C.CLOSE_WAIT {
-// 			c.(*tcpConn).Release()
-// 		}
-// 		return true
-// 	})
-// }
-
 func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
 	// prepare key
 	connKeyArg := NewConnKeyArg()
@@ -74,14 +61,12 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		aborting:        false,
 		ctx:             ctx,
 		cancel:          cancel,
-		localWriteCh:    make(chan []byte, 32),
+		localWriteCh:    make(chan []byte, 1),
 		localWriteSubCh: make(chan []byte, 1),
 	}
 
 	// Associate conn with key and save to the global map.
 	tcpConns.Store(connKey, conn)
-
-	// go checkTCPConns()
 
 	// Pass the key as arg for subsequent tcp callbacks.
 	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
@@ -110,14 +95,11 @@ func (conn *tcpConn) Receive(data []byte) error {
 	if conn.isClosing() {
 		return errors.New(fmt.Sprintf("connection %v->%v was closed by remote", conn.LocalAddr(), conn.RemoteAddr()))
 	}
-
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}
-
 	C.tcp_recved(conn.pcb, C.u16_t(len(data)))
-
 	return nil
 }
 
@@ -163,11 +145,10 @@ Loop:
 	}
 
 	// Actually send data.
-	C.tcp_output(conn.pcb)
-	// err := C.tcp_output(conn.pcb)
-	// if err != C.ERR_OK {
-	// 	log.Printf("tcp_output error with lwip error code: %v", int(err))
-	// }
+	err := C.tcp_output(conn.pcb)
+	if err != C.ERR_OK {
+		// TODO: what to do?
+	}
 }
 
 // tcpWrite enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
@@ -317,7 +298,6 @@ func (conn *tcpConn) closeInternal() error {
 }
 
 func (conn *tcpConn) abortInternal() {
-	// log.Printf("abort TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	conn.Release()
 	C.tcp_abort(conn.pcb)
 }
@@ -331,14 +311,12 @@ func (conn *tcpConn) Abort() {
 
 // The corresponding pcb is already freed when this callback is called
 func (conn *tcpConn) Err(err error) {
-	// log.Printf("error on TCP connection %v->%v: %v", conn.LocalAddr(), conn.RemoteAddr(), err)
 	conn.Release()
 	conn.cancel()
 	conn.handler.DidClose(conn)
 }
 
 func (conn *tcpConn) LocalDidClose() error {
-	// log.Printf("local close TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 	conn.handler.LocalDidClose(conn)
 	conn.setLocalClosed()    // flag closing
 	return conn.CheckState() // check pending data
@@ -349,7 +327,6 @@ func (conn *tcpConn) Release() {
 		FreeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
 	}
-	// log.Printf("ended TCP connection %v->%v", conn.LocalAddr(), conn.RemoteAddr())
 }
 
 func (conn *tcpConn) Poll() error {

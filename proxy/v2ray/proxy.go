@@ -179,6 +179,7 @@ func (h *handler) fetchInput(conn core.Connection) {
 	}
 
 	buf := core.NewBytes(core.BufSize)
+	defer core.FreeBytes(buf)
 
 FetchingLoop:
 	for {
@@ -187,7 +188,6 @@ FetchingLoop:
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			select {
 			case <-c.fetchingInputCtx.Done():
-				core.FreeBytes(buf)
 				// Request was handed to V2Ray, stop fetching but leave the
 				// connection open.
 				return
@@ -196,18 +196,14 @@ FetchingLoop:
 			}
 		}
 		if err != nil {
-			// log.Printf("fetch input failed: %v", err)
 			h.Close(conn)
 			conn.Close()
-			core.FreeBytes(buf)
 			return
 		}
 		_, err = conn.Write(buf[:n])
 		if err != nil {
-			// log.Printf("write local failed: %v", err)
 			h.Close(conn)
 			conn.Close()
-			core.FreeBytes(buf)
 			return
 		}
 	}
