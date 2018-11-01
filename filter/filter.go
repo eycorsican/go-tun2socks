@@ -1,4 +1,4 @@
-package main
+package filter
 
 import (
 	"context"
@@ -15,12 +15,21 @@ import (
 	"github.com/eycorsican/go-tun2socks/route"
 )
 
-type icmpDelayedWriter struct {
+// Filter is used for filtering IP packets comming from TUN.
+type Filter interface {
+	io.Writer
+}
+
+type icmpFilter struct {
 	writer io.Writer
 	delay  int
 }
 
-func (w *icmpDelayedWriter) Write(buf []byte) (int, error) {
+func NewICMPFilter(w io.Writer, delay int) Filter {
+	return &icmpFilter{writer: w, delay: delay}
+}
+
+func (w *icmpFilter) Write(buf []byte) (int, error) {
 	if uint8(buf[9]) == route.PROTOCOL_ICMP {
 		payload := make([]byte, len(buf))
 		copy(payload, buf)
@@ -37,13 +46,17 @@ func (w *icmpDelayedWriter) Write(buf []byte) (int, error) {
 	}
 }
 
-type routingAwareWriter struct {
+type routingFilter struct {
 	writer  io.Writer
 	router  vrouting.Router
 	gateway string
 }
 
-func (w *routingAwareWriter) Write(buf []byte) (int, error) {
+func NewRoutingFilter(w io.Writer, router vrouting.Router, gateway string) Filter {
+	return &routingFilter{writer: w, router: router, gateway: gateway}
+}
+
+func (w *routingFilter) Write(buf []byte) (int, error) {
 	ipVersion := route.PeekIPVersion(buf)
 	if ipVersion == route.IPVERSION_6 {
 		// TODO No IPv6 support currently
@@ -78,7 +91,7 @@ func (w *routingAwareWriter) Write(buf []byte) (int, error) {
 	if err == nil && tag == "direct" {
 		err := route.AddRoute(dest.Address.String(), "255.255.255.255", w.gateway)
 		if err == nil {
-			// Discarding the packet so it will bed retransmitted, and hopefully retransmitted packets will
+			// Discarding the packet so it will be retransmitted, and hopefully retransmitted packets will
 			// use the new route.
 			//
 			// TODO: On macOS, it appears that even though the route is added to the routing table, subsequent

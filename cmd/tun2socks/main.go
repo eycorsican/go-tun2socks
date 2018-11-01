@@ -19,6 +19,7 @@ import (
 	vrouting "v2ray.com/core/features/routing"
 
 	"github.com/eycorsican/go-tun2socks/core"
+	"github.com/eycorsican/go-tun2socks/filter"
 	"github.com/eycorsican/go-tun2socks/proxy/echo"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
@@ -68,7 +69,7 @@ func main() {
 
 	// Wrap a writer to delay ICMP packets if delay time is not zero.
 	if *delayICMP > 0 {
-		lwipWriter = &icmpDelayedWriter{writer: lwipWriter, delay: *delayICMP}
+		lwipWriter = filter.NewICMPFilter(lwipWriter, *delayICMP).(io.Writer)
 	}
 
 	// Register TCP and UDP handlers to handle accepted connections.
@@ -109,7 +110,7 @@ func main() {
 		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
 		if *gateway != "" {
 			router := v.GetFeature(vrouting.RouterType()).(vrouting.Router)
-			lwipWriter = &routingAwareWriter{writer: lwipWriter, router: router, gateway: *gateway}
+			lwipWriter = filter.NewRoutingFilter(lwipWriter, router, *gateway).(io.Writer)
 		}
 
 		sniffingConfig := &vproxyman.SniffingConfig{
