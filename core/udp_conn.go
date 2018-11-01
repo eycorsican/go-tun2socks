@@ -63,6 +63,7 @@ func (conn *udpConn) Write(data []byte) (int, error) {
 	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
 	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &conn.remoteIP, conn.remotePort)
+	C.pbuf_free(buf)
 	return len(data), nil
 }
 

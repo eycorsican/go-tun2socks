@@ -145,6 +145,7 @@ Loop:
 	}
 
 	// Actually send data.
+	// TODO: occasionally receive EXC_BAD_ACCESS error when calling tcp_output() on iOS
 	err := C.tcp_output(conn.pcb)
 	if err != C.ERR_OK {
 		// TODO: what to do?

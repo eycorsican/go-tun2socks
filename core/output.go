@@ -32,13 +32,15 @@ import (
 	"errors"
 )
 
-func defaultOutputFn(data []byte) (int, error) {
-	return 0, errors.New("output function not set")
-}
-
-var OutputFn func([]byte) (int, error) = defaultOutputFn
+var OutputFn func([]byte) (int, error)
 
 func RegisterOutputFn(fn func([]byte) (int, error)) {
 	OutputFn = fn
 	C.set_output()
+}
+
+func init() {
+	OutputFn = func(data []byte) (int, error) {
+		return 0, errors.New("output function not set")
+	}
 }
