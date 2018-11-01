@@ -16,6 +16,7 @@ import (
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	vcore "v2ray.com/core"
 	vproxyman "v2ray.com/core/app/proxyman"
+	vbytespool "v2ray.com/core/common/bytespool"
 	vrouting "v2ray.com/core/features/routing"
 
 	"github.com/eycorsican/go-tun2socks/core"
@@ -90,6 +91,8 @@ func main() {
 		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout))
 		break
 	case "v2ray":
+		core.SetBufferPool(vbytespool.GetPool(core.BufSize))
+
 		configBytes, err := ioutil.ReadFile(*vconfig)
 		if err != nil {
 			log.Fatal("invalid vconfig file")

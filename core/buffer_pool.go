@@ -4,12 +4,18 @@ import (
 	"sync"
 )
 
+var pool *sync.Pool
+
 const BufSize = 2 * 1024
 
-var pool = sync.Pool{
+var defaultBufferPool = &sync.Pool{
 	New: func() interface{} {
 		return make([]byte, BufSize)
 	},
+}
+
+func SetBufferPool(p *sync.Pool) {
+	pool = p
 }
 
 func NewBytes(size int) []byte {
@@ -24,4 +30,8 @@ func FreeBytes(b []byte) {
 	if len(b) <= BufSize {
 		pool.Put(b)
 	}
+}
+
+func init() {
+	SetBufferPool(defaultBufferPool)
 }
