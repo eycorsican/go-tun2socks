@@ -9,20 +9,28 @@ Tested and worked on macOS, Linux, Windows and iOS (as a library).
 ## Overview
 
 ```
-                                      core.NewLWIPStack()
-                                           +
-                                           |
-                                           |
-                                           |
-                                           |                TCP/UDP             core.RegisterTCPConnectionHandler()
-                                           |
-                          core.Input()     |           core.Connection          core.RegisterUDPConnectionHandler()
-                                           v
-Application +------> TUN +-----------> lwIP stack +------------------------------> core.ConnectionHandler +-------> Remote proxy server +--> Destination
-
-
-                         <-----------+
-                    core.RegisterOutputFn()
+                                                                          core.NewLWIPStack()
+                                                                                   +
+                                                                                   |
+                                                                                   |
+                            Dynamically change routes                              |
+                      +-------------------------------------+                      |              TCP/UDP               core.RegisterTCPConnectionHandler()
+                      |                                     |                      |
+                      |                                     |     core.Input()     |           core.Connection          core.RegisterUDPConnectionHandler()
+                      |                                     +                      v
+                      |          +-----------> TUN +----> Filter +-----------> lwIP stack +------------------------------> core.ConnectionHandler
+                      |          |                               <-----------+                                                        +
+                      |          |                            core.RegisterOutputFn()                                                 |
+                      v          |                                                                                                    |
+Application +-> Routing table +-->                                                                                                    |
+                      ^          |                                                                                                    |
+                      |          |                                                                                                    |
+                      |          |                                   +------> Destination                                             |
+                      |          +-----------> Default gateway +-----+                                                                |
+                      |                                              +------> Proxy server +--> Destination                           |
+                      |                                                                                                               |
+                      |                                                                                                               |
+                      +---------------------------------------------------------------------------------------------------------------+
 
 ```
 
