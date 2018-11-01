@@ -8,12 +8,6 @@ var pool *sync.Pool
 
 const BufSize = 2 * 1024
 
-var defaultBufferPool = &sync.Pool{
-	New: func() interface{} {
-		return make([]byte, BufSize)
-	},
-}
-
 func SetBufferPool(p *sync.Pool) {
 	pool = p
 }
@@ -33,5 +27,9 @@ func FreeBytes(b []byte) {
 }
 
 func init() {
-	SetBufferPool(defaultBufferPool)
+	SetBufferPool(&sync.Pool{
+		New: func() interface{} {
+			return make([]byte, BufSize)
+		},
+	})
 }
