@@ -102,7 +102,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 	fqdn := req.Question[0].Name
 	domain := fqdn[:len(fqdn)-1]
 
-	log.Printf("dispatch dns request for domain: %v", domain)
+	log.Printf("dispatch dns request for domain: %v (%v)", domain, qtype)
 	ips, err := h.dnsClient.LookupIP(domain)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
@@ -119,7 +119,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 					Name:     fqdn,
 					Rrtype:   dns.TypeA,
 					Class:    dns.ClassINET,
-					Ttl:      1, // cached in V2Ray
+					Ttl:      150, // cached in V2Ray
 					Rdlength: 4,
 				},
 				A: ip,
@@ -130,7 +130,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 					Name:     fqdn,
 					Rrtype:   dns.TypeAAAA,
 					Class:    dns.ClassINET,
-					Ttl:      1, // cached in V2Ray
+					Ttl:      150, // cached in V2Ray
 					Rdlength: 16,
 				},
 				AAAA: ip,
