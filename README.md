@@ -188,6 +188,26 @@ route add 1.2.3.4 192.168.0.1 metric 5
 - Built-in routing rules and routing table management
 - Support ICMP packets forwarding
 
+## Development
+
+The core part of this project is the `core` package, it focus on `tun2socks`'s `2` part, the core package only depend on lwIP (include a few platform-dependent code) and Go's standard library. On the one hand, IP packets input to or output from the `lwIP Stack` that initialized by `core.NewLWIPStack()`, on the other hand, TCP/UDP connections would "socksified" by the core package and can be handled by your own `core.ConnectionHandler` implementation.
+
+As for the `tun` part, different OS may has it's own interfaces.
+
+For example:
+- macOS
+  - macOS has TUN/TAP support by its BSD kernel
+  - Apple also provides an easy way to filter inbound or outbound IP packets by [`IP Filters`](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/NKEConceptual/ip_filter_nke/ip_filter_nke.html) (Proxifier seems use this method)
+- Linux
+  - Linux has TUN/TAP support by the kernel
+- Windows
+  - Windows has no kernel support for TUN/TAP, but OpenVPN has [implemented one](https://github.com/OpenVPN/tap-windows6)
+- iOS
+  - Apple provides [`NEPacketTunnelProvider`](https://developer.apple.com/documentation/networkextension/nepackettunnelprovider), and one may read/write IP packets from/to the [`packetFlow`](https://developer.apple.com/documentation/networkextension/nepackettunnelprovider/1406185-packetflow)
+- Android
+  - I am not familiar with Android, but it uses Linux as kernel so should also has TUN/TAP drivers support
+  - Android also provides an easy way to read/write IP packets with [VpnService.Builder](https://developer.android.com/reference/android/net/VpnService.Builder#establish())
+
 ## This project is using lwIP 
 
 This project is using a modified version of lwIP, you can checkout this repo to find out what are the changes: https://github.com/eycorsican/lwip
