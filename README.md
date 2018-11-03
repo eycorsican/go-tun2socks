@@ -190,6 +190,10 @@ route add 1.2.3.4 192.168.0.1 metric 5
 
 ## Development
 
+```
+IMPORTANT: Using the core package requires copying C source files into the Go source folder, this project has it done in the Makefile. One may do it without building the project by executing `make copy`, or one may integrate this copying process into ones building process.
+```
+
 The core part of this project is the `core` package, it focus on `tun2socks`'s `2` part, the core package has fully IPv4/IPv6, TCP/UDP support, and only depend on lwIP (include a few platform-dependent code) and Go's standard library. On the one hand, IP packets input to or output from the `lwIP Stack` that initialized by `core.NewLWIPStack()`, on the other hand, TCP/UDP connections would "socksified" by the core package and can be handled by your own `core.ConnectionHandler` implementation.
 
 As for the `tun` part, different OS may has it's own interfaces.
@@ -207,6 +211,8 @@ For example:
 - Android
   - I am not familiar with Android, but it uses Linux as kernel so should also has TUN/TAP drivers support
   - Android also provides an easy way to read/write IP packets with [VpnService.Builder](https://developer.android.com/reference/android/net/VpnService.Builder#establish())
+
+Sample code for creating a `lwIP Stack` and doing IP packets inputing/outputing, please refer `cmd/tun2socks/main.go`. Sample code for implementing `core.ConnectionHandler`, please refer `proxy/*`.
 
 ## This project is using lwIP 
 
