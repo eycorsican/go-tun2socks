@@ -217,6 +217,10 @@ For example:
 
 Sample code for creating a `lwIP Stack` and doing IP packets inputing/outputing, please refer `cmd/tun2socks/main.go`. Sample code for implementing `core.ConnectionHandler`, please refer `proxy/*`.
 
+## Creating a Framework for iOS
+
+Refer: https://github.com/eycorsican/go-tun2socks-ios
+
 ## This project is using lwIP 
 
 This project is using a modified version of lwIP, you can checkout this repo to find out what are the changes: https://github.com/eycorsican/lwip
