@@ -187,6 +187,8 @@ route add 1.2.3.4 192.168.0.1 metric 5
 ## TODO
 - Built-in routing rules and routing table management
 - Support ICMP packets forwarding
+- Make core.Connection an [io.ReadWriteCloser](https://golang.org/pkg/io/#ReadWriteCloser)
+- Add Close() method for core.LWIPStack
 
 ## Development
 
