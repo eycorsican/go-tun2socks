@@ -21,7 +21,7 @@ func NewBytes(size int) []byte {
 }
 
 func FreeBytes(b []byte) {
-	if len(b) <= BufSize {
+	if len(b) >= BufSize {
 		pool.Put(b)
 	}
 }
