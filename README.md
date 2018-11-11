@@ -4,7 +4,7 @@
 
 A tun2socks implementation written in Go.
 
-Tested and worked on macOS, Linux, Windows and iOS (as a library).
+Tested and worked on macOS, Linux and Windows, iOS and Android are also supported (as a library).
 
 ## Overview
 
@@ -223,6 +223,10 @@ Sample code for creating a `lwIP Stack` and doing IP packets inputing/outputing,
 ## Creating a Framework for iOS
 
 Refer: https://github.com/eycorsican/go-tun2socks-ios
+
+## Creating an AAR library for Android
+
+TBD
 
 ## This project is using lwIP 
 
