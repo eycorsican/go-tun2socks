@@ -77,6 +77,7 @@
 /*
 #define TCP_LISTEN_BACKLOG 1
 #define TCP_DEFAULT_LISTEN_BACKLOG 0xff
+#define LWIP_TCP_TIMESTAMPS 1
 */
 
 #define TCP_MSS 1460
