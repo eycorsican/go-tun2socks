@@ -13,6 +13,7 @@ import (
 
 type LWIPStack interface {
 	Write([]byte) (int, error)
+	Close() error
 }
 
 // lwIP runs in a single thread, locking is needed in Go runtime.
@@ -74,6 +75,18 @@ func NewLWIPStack() LWIPStack {
 
 func (s *lwipStack) Write(data []byte) (int, error) {
 	return Input(data)
+}
+
+func (s *lwipStack) Close() error {
+	tcpConns.Range(func(_, c interface{}) bool {
+		c.(*tcpConn).Abort()
+		return true
+	})
+	udpConns.Range(func(_, c interface{}) bool {
+		c.(*udpConn).Close()
+		return true
+	})
+	return nil
 }
 
 func init() {

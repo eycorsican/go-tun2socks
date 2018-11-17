@@ -21,6 +21,7 @@ type udpConn struct {
 	remoteIP   C.ip_addr_t
 	remotePort C.u16_t
 	localPort  C.u16_t
+	closed     bool
 }
 
 func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
@@ -33,6 +34,7 @@ func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 		remoteIP:   remoteIP,
 		localPort:  localPort,
 		remotePort: remotePort,
+		closed:     false,
 	}
 	err := handler.Connect(conn, conn.RemoteAddr())
 	if err != nil {
@@ -50,6 +52,9 @@ func (conn *udpConn) LocalAddr() net.Addr {
 }
 
 func (conn *udpConn) Receive(data []byte) error {
+	if conn.closed {
+		return errors.New("connection closed")
+	}
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
@@ -58,6 +63,9 @@ func (conn *udpConn) Receive(data []byte) error {
 }
 
 func (conn *udpConn) Write(data []byte) (int, error) {
+	if conn.closed {
+		return 0, errors.New("connection closed")
+	}
 	if conn.pcb == nil {
 		return 0, errors.New("nil udp pcb")
 	}
@@ -77,6 +85,7 @@ func (conn *udpConn) Close() error {
 		src: conn.LocalAddr().String(),
 		dst: conn.RemoteAddr().String(),
 	}
+	conn.closed = true
 	udpConns.Delete(connId)
 	return nil
 }

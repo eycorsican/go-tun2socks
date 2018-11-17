@@ -95,6 +95,9 @@ func (conn *tcpConn) Receive(data []byte) error {
 	if conn.isClosing() {
 		return errors.New(fmt.Sprintf("connection %v->%v was closed by remote", conn.LocalAddr(), conn.RemoteAddr()))
 	}
+	if conn.isAborting() {
+		return errors.New(fmt.Sprintf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr()))
+	}
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
@@ -174,6 +177,9 @@ func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
 func (conn *tcpConn) Write(data []byte) (int, error) {
 	if conn.isLocalClosed() {
 		return 0, errors.New(fmt.Sprintf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr()))
+	}
+	if conn.isAborting() {
+		return 0, errors.New(fmt.Sprintf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr()))
 	}
 
 	var written = false
