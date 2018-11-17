@@ -78,6 +78,11 @@ func (h *handler) shouldAcceptDNSQuery(data []byte) bool {
 		return false
 	}
 
+	qclass := req.Question[0].Qclass
+	if qclass != dns.ClassINET {
+		return false
+	}
+
 	fqdn := req.Question[0].Name
 	domain := fqdn[:len(fqdn)-1]
 
@@ -110,7 +115,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 	}
 
 	resp := new(dns.Msg)
-	resp.SetReply(req)
+	resp = resp.SetReply(req)
 	resp.RecursionAvailable = true
 	for _, ip := range ips {
 		if isIPv4(ip) && qtype == dns.TypeA {
@@ -138,8 +143,14 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 		}
 	}
 	if len(resp.Answer) == 0 {
-		err = errors.New("no answer")
-		return
+		// Has A records but no wanted AAAA records
+		if qtype == dns.TypeAAAA && len(ips) != 0 {
+			// https://tools.ietf.org/html/rfc4074#section-3
+			resp = resp.SetRcode(req, dns.RcodeSuccess)
+		} else {
+			err = errors.New(fmt.Sprintf("no answer for %v (%v) (%v)", domain, qtype, len(ips)))
+			return
+		}
 	}
 	buf := core.NewBytes(core.BufSize)
 	defer core.FreeBytes(buf)
