@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/miekg/dns"
 	vcore "v2ray.com/core"
