@@ -2,8 +2,6 @@ package filter
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -78,9 +76,14 @@ func (w *routingFilter) Write(buf []byte) (int, error) {
 	destAddr := route.PeekDestinationAddress(buf)
 	destPort := route.PeekDestinationPort(buf)
 
-	dest, err := vnet.ParseDestination(fmt.Sprintf("%s:%s:%d", protocol, destAddr, destPort.Value()))
-	if err != nil {
-		return 0, errors.New(fmt.Sprintf("failed to parse destination: %v", err))
+	var dest vnet.Destination
+	switch protocol {
+	case "tcp":
+		dest = vnet.TCPDestination(destAddr, destPort)
+	case "udp":
+		dest = vnet.UDPDestination(destAddr, destPort)
+	default:
+		panic("invalid protocol")
 	}
 
 	ctx := vsession.ContextWithOutbound(context.Background(), &vsession.Outbound{
