@@ -192,30 +192,32 @@ func (h *handler) fetchInput(conn core.Connection) {
 	buf := core.NewBytes(core.BufSize)
 	defer core.FreeBytes(buf)
 
-FetchingLoop:
 	for {
-		c.conn.SetReadDeadline(time.Now().Add(4 * time.Second))
 		n, err := c.conn.Read(buf)
-		if err, ok := err.(net.Error); ok && err.Timeout() {
-			select {
-			case <-c.fetchingInputCtx.Done():
-				// Request was handed to V2Ray, stop fetching but leave the
-				// connection open.
+		select {
+		case <-c.fetchingInputCtx.Done():
+			// Request was re-dipatched to V2Ray, stop fetching but leave the
+			// connection open.
+			return
+		default:
+		}
+		select {
+		case <-c.fetchingInputCtx.Done():
+			// Request was re-dipatched to V2Ray, stop fetching but leave the
+			// connection open.
+			return
+		default:
+			if err != nil && n <= 0 {
+				h.Close(conn)
+				conn.Close()
 				return
-			default:
-				continue FetchingLoop
 			}
-		}
-		if err != nil {
-			h.Close(conn)
-			conn.Close()
-			return
-		}
-		_, err = conn.Write(buf[:n])
-		if err != nil {
-			h.Close(conn)
-			conn.Close()
-			return
+			_, err = conn.Write(buf[:n])
+			if err != nil {
+				h.Close(conn)
+				conn.Close()
+				return
+			}
 		}
 	}
 }
@@ -282,6 +284,7 @@ func (h *handler) DidReceive(conn core.Connection, data []byte) error {
 			// to cancel the fetching goroutine, but be careful do not close the
 			// connection.
 			c.cancelFetchingInput()
+			c.conn.Close()
 
 			h.Lock()
 			// The request is successfully handed to V2Ray, mark as dispatched so
