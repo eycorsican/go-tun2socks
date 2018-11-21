@@ -222,11 +222,11 @@ Sample code for creating a `lwIP Stack` and doing IP packets inputing/outputing,
 
 ## Creating a Framework for iOS
 
-Refer: https://github.com/eycorsican/go-tun2socks-ios
+https://github.com/eycorsican/go-tun2socks-ios
 
 ## Creating an AAR library for Android
 
-TBD
+https://github.com/eycorsican/go-tun2socks-android
 
 ## This project is using lwIP 
 
