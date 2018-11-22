@@ -137,7 +137,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 					Rrtype:   dns.TypeA,
 					Class:    dns.ClassINET,
 					Ttl:      150, // cached in V2Ray
-					Rdlength: 4,
+					Rdlength: net.IPv4len,
 				},
 				A: ip,
 			})
@@ -148,7 +148,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 					Rrtype:   dns.TypeAAAA,
 					Class:    dns.ClassINET,
 					Ttl:      150, // cached in V2Ray
-					Rdlength: 16,
+					Rdlength: net.IPv6len,
 				},
 				AAAA: ip,
 			})
