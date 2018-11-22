@@ -27,7 +27,7 @@ func isIPv4(ip net.IP) bool {
 
 func isIPv6(ip net.IP) bool {
 	// To16() also valid for ipv4, ensure it's not an ipv4 address
-	if ip.To4() != nil {
+	if isIPv4(ip) {
 		return false
 	}
 	if ip.To16() != nil {
@@ -107,7 +107,20 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 	domain := fqdn[:len(fqdn)-1]
 
 	log.Printf("dispatch dns request for domain: %v (%v)", domain, qtype)
-	ips, err := h.dnsClient.LookupIP(domain)
+	var ips []net.IP
+	switch qtype {
+	case dns.TypeA:
+		if dnsClient, ok := h.dnsClient.(vdns.IPv4Lookup); ok {
+			ips, err = dnsClient.LookupIPv4(domain)
+		} else {
+			ips, err = h.dnsClient.LookupIP(domain)
+		}
+	case dns.TypeAAAA:
+		ips, err = h.dnsClient.LookupIP(domain)
+	default:
+		err = errors.New(fmt.Sprintf("impossible qtype: %v", qtype))
+		return
+	}
 	if err != nil {
 		err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
 		return
@@ -117,7 +130,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 	resp = resp.SetReply(req)
 	resp.RecursionAvailable = true
 	for _, ip := range ips {
-		if isIPv4(ip) && qtype == dns.TypeA {
+		if qtype == dns.TypeA && isIPv4(ip) {
 			resp.Answer = append(resp.Answer, &dns.A{
 				Hdr: dns.RR_Header{
 					Name:     fqdn,
@@ -128,7 +141,7 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 				},
 				A: ip,
 			})
-		} else if isIPv6(ip) && qtype == dns.TypeAAAA {
+		} else if qtype == dns.TypeAAAA && isIPv6(ip) {
 			resp.Answer = append(resp.Answer, &dns.AAAA{
 				Hdr: dns.RR_Header{
 					Name:     fqdn,
