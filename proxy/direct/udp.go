@@ -14,12 +14,14 @@ import (
 type udpHandler struct {
 	sync.Mutex
 
+	timeout        time.Duration
 	udpConns       map[core.Connection]*net.UDPConn
 	udpTargetAddrs map[core.Connection]*net.UDPAddr
 }
 
-func NewUDPHandler() core.ConnectionHandler {
+func NewUDPHandler(timeout time.Duration) core.ConnectionHandler {
 	return &udpHandler{
+		timeout:        timeout,
 		udpConns:       make(map[core.Connection]*net.UDPConn, 8),
 		udpTargetAddrs: make(map[core.Connection]*net.UDPAddr, 8),
 	}
@@ -34,7 +36,7 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, pc *net.UDPConn) {
 	}()
 
 	for {
-		pc.SetDeadline(time.Now().Add(16 * time.Second))
+		pc.SetDeadline(time.Now().Add(h.timeout))
 		n, _, err := pc.ReadFromUDP(buf)
 		if err != nil {
 			// log.Printf("failed to read UDP data from remote: %v", err)
