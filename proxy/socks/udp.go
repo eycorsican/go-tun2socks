@@ -46,10 +46,10 @@ func (h *udpHandler) handleTCP(conn core.Connection, c net.Conn) {
 		c.SetDeadline(time.Time{})
 		_, err := c.Read(buf)
 		if err == io.EOF {
+			log.Printf("UDP associate to %v closed by remote", c.RemoteAddr())
 			h.Close(conn)
 			return
 		} else if err != nil {
-			log.Printf("failed to handle TCP connection for UDP associate request: %v", err)
 			h.Close(conn)
 			return
 		}
@@ -213,4 +213,5 @@ func (h *udpHandler) Close(conn core.Connection) {
 		pc.Close()
 		delete(h.udpConns, conn)
 	}
+	delete(h.targetAddrs, conn)
 }
