@@ -58,6 +58,8 @@ type handler struct {
 	dispatched map[core.Connection]bool
 	dnsRespCh  chan *dnsRespEntry
 	dnsClient  vdns.Client
+
+	exceptionDomains map[string]string
 }
 
 func (h *handler) shouldAcceptDNSQuery(data []byte) bool {
@@ -108,22 +110,33 @@ func (h *handler) handleDNSQuery(conn core.Connection, data []byte) {
 
 	log.Printf("dispatch dns request for domain: %v (%v)", domain, qtype)
 	var ips []net.IP
-	switch qtype {
-	case dns.TypeA:
-		if dnsClient, ok := h.dnsClient.(vdns.IPv4Lookup); ok {
-			ips, err = dnsClient.LookupIPv4(domain)
-		} else {
-			ips, err = h.dnsClient.LookupIP(domain)
+
+	// FIXME: A domain name may has multiple A or/and AAAA records.
+	if ip, found := h.exceptionDomains[domain]; found {
+		parsedIP := net.ParseIP(ip)
+		if parsedIP == nil {
+			panic("error parsing IP from exception list")
 		}
-	case dns.TypeAAAA:
-		ips, err = h.dnsClient.LookupIP(domain)
-	default:
-		err = errors.New(fmt.Sprintf("impossible qtype: %v", qtype))
-		return
-	}
-	if err != nil {
-		err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
-		return
+		log.Printf("returning IP %v for domain %v from exception list", ip, domain)
+		ips = append(ips, parsedIP)
+	} else {
+		switch qtype {
+		case dns.TypeA:
+			if dnsClient, ok := h.dnsClient.(vdns.IPv4Lookup); ok {
+				ips, err = dnsClient.LookupIPv4(domain)
+			} else {
+				ips, err = h.dnsClient.LookupIP(domain)
+			}
+		case dns.TypeAAAA:
+			ips, err = h.dnsClient.LookupIP(domain)
+		default:
+			err = errors.New(fmt.Sprintf("impossible qtype: %v", qtype))
+			return
+		}
+		if err != nil {
+			err = errors.New(fmt.Sprintf("lookup ip failed: %v", err))
+			return
+		}
 	}
 
 	resp := new(dns.Msg)
@@ -242,6 +255,20 @@ func NewHandler(ctx context.Context, instance *vcore.Instance) core.ConnectionHa
 		dnsRespCh:  make(chan *dnsRespEntry, 1024),
 		dispatched: make(map[core.Connection]bool, 16),
 		dnsClient:  instance.GetFeature(vdns.ClientType()).(vdns.Client),
+	}
+	go h.handleDNSResponse()
+	return h
+}
+
+func NewHandlerWithExceptionDomains(ctx context.Context, instance *vcore.Instance, exceptionDomains map[string]string) core.ConnectionHandler {
+	h := &handler{
+		ctx:              ctx,
+		v:                instance,
+		conns:            make(map[core.Connection]*connEntry, 16),
+		dnsRespCh:        make(chan *dnsRespEntry, 1024),
+		dispatched:       make(map[core.Connection]bool, 16),
+		dnsClient:        instance.GetFeature(vdns.ClientType()).(vdns.Client),
+		exceptionDomains: exceptionDomains,
 	}
 	go h.handleDNSResponse()
 	return h
