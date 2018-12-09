@@ -8,5 +8,7 @@ import (
 	_ "v2ray.com/core/app/proxyman/command"
 	_ "v2ray.com/core/app/stats/command"
 
+	_ "v2ray.com/core/app/reverse"
+
 	_ "v2ray.com/core/transport/internet/domainsocket"
 )
