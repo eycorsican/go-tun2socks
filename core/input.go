@@ -18,6 +18,10 @@ import (
 )
 
 func Input(pkt []byte) (int, error) {
+	if len(pkt) == 0 {
+		return 0, nil
+	}
+
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_ROM)
 	lwipMutex.Lock()
 	err := C.input(buf)
