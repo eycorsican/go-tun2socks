@@ -61,7 +61,7 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		aborting:        false,
 		ctx:             ctx,
 		cancel:          cancel,
-		localWriteCh:    make(chan []byte, 10),
+		localWriteCh:    make(chan []byte, 32),
 		localWriteSubCh: make(chan []byte, 1),
 	}
 
