@@ -76,7 +76,12 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	SetTCPErrCallback(pcb)
 	SetTCPPollCallback(pcb, C.u8_t(1)) // interval 1 means Poll will be called twice a second
 
+	// Unlocks lwip thread during connecting remote host, gives other goroutines
+	// chances to interact with the lwip thread. Assuming lwip thread has already
+	// been locked.
+	lwipMutex.Unlock()
 	err := handler.Connect(conn, conn.RemoteAddr())
+	lwipMutex.Lock()
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +103,12 @@ func (conn *tcpConn) Receive(data []byte) error {
 	if conn.isAborting() {
 		return errors.New(fmt.Sprintf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr()))
 	}
+	// Unlocks lwip thread during sending data to remote, gives other goroutines
+	// chances to interact with the lwip thread. Assuming lwip thread has already
+	// been locked.
+	lwipMutex.Unlock()
 	err := conn.handler.DidReceive(conn, data)
+	lwipMutex.Lock()
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}
