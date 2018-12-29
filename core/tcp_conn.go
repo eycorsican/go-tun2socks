@@ -74,7 +74,7 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	SetTCPRecvCallback(pcb)
 	SetTCPSentCallback(pcb)
 	SetTCPErrCallback(pcb)
-	SetTCPPollCallback(pcb, C.u8_t(1)) // interval 1 means Poll will be called twice a second
+	SetTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
 	// Unlocks lwip thread during connecting remote host, gives other goroutines
 	// chances to interact with the lwip thread. Assuming lwip thread has already

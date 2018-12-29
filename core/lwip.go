@@ -4,16 +4,22 @@ package core
 #cgo CFLAGS: -I./src/include
 #include "lwip/tcp.h"
 #include "lwip/udp.h"
+#include "lwip/timeouts.h"
 */
 import "C"
 import (
 	"sync"
+	"time"
 	"unsafe"
 )
+
+const CHECK_TIMEOUTS_INTERVAL = 250                                     // in millisecond
+const TCP_POLL_INTERVAL = 2 * (float32(1000) / CHECK_TIMEOUTS_INTERVAL) // poll every 2 seconds
 
 type LWIPStack interface {
 	Write([]byte) (int, error)
 	Close() error
+	RestartTimeouts()
 }
 
 // lwIP runs in a single thread, locking is needed in Go runtime.
@@ -67,6 +73,17 @@ func NewLWIPStack() LWIPStack {
 
 	SetUDPRecvCallback(udpPCB, nil)
 
+	go func() {
+		for {
+			select {
+			case <-time.After(CHECK_TIMEOUTS_INTERVAL * time.Millisecond):
+				lwipMutex.Lock()
+				C.sys_check_timeouts()
+				lwipMutex.Unlock()
+			}
+		}
+	}()
+
 	return &lwipStack{
 		tpcb: tcpPCB,
 		upcb: udpPCB,
@@ -75,6 +92,10 @@ func NewLWIPStack() LWIPStack {
 
 func (s *lwipStack) Write(data []byte) (int, error) {
 	return Input(data)
+}
+
+func (s *lwipStack) RestartTimeouts() {
+	C.sys_restart_timeouts()
 }
 
 func (s *lwipStack) Close() error {

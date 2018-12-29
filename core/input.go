@@ -30,7 +30,6 @@ func Input(pkt []byte) (int, error) {
 		// TODO
 		panic("why failed!?")
 	}
-	C.sys_check_timeouts()
 	lwipMutex.Unlock()
 	return len(pkt), nil
 }
