@@ -35,7 +35,7 @@ func (w *icmpFilter) Write(buf []byte) (int, error) {
 			time.Sleep(time.Duration(w.delay) * time.Millisecond)
 			_, err := w.writer.Write(data)
 			if err != nil {
-				log.Fatal("failed to input data to the stack: %v", err)
+				log.Fatalf("failed to input data to the stack: %v", err)
 			}
 		}(payload)
 		return len(buf), nil
@@ -62,7 +62,7 @@ func (w *routingFilter) Write(buf []byte) (int, error) {
 	}
 
 	if ipVersion != route.IPVERSION_4 && ipVersion != route.IPVERSION_6 {
-		log.Fatal("not an IP packet: %v", buf)
+		log.Fatalf("not an IP packet: %v", buf)
 	}
 
 	protocol := route.PeekProtocol(buf)
