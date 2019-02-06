@@ -107,7 +107,7 @@ func main() {
 
 		v, err := vcore.StartInstance("json", configBytes)
 		if err != nil {
-			log.Fatal("start V instance failed: %v", err)
+			log.Fatalf("start V instance failed: %v", err)
 		}
 
 		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
@@ -144,7 +144,7 @@ func main() {
 	go func() {
 		_, err := io.CopyBuffer(lwipWriter, tunDev, make([]byte, MTU))
 		if err != nil {
-			log.Fatal("copying data failed: %v", err)
+			log.Fatalf("copying data failed: %v", err)
 		}
 	}()
 

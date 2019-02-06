@@ -30,10 +30,7 @@ type tcpConn struct {
 	aborting    bool
 	ctx         context.Context
 	cancel      context.CancelFunc
-
-	// Data from remote not yet write to local will buffer into this channel.
-	localWriteCh    chan []byte
-	localWriteSubCh chan []byte
+	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
 }
 
 func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
@@ -49,20 +46,19 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	ctx, cancel := context.WithCancel(context.Background())
 
 	conn := &tcpConn{
-		pcb:             pcb,
-		handler:         handler,
-		network:         "tcp",
-		localAddr:       ParseTCPAddr(IPAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
-		remoteAddr:      ParseTCPAddr(IPAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
-		connKeyArg:      connKeyArg,
-		connKey:         connKey,
-		closing:         false,
-		localClosed:     false,
-		aborting:        false,
-		ctx:             ctx,
-		cancel:          cancel,
-		localWriteCh:    make(chan []byte, 32),
-		localWriteSubCh: make(chan []byte, 1),
+		pcb:         pcb,
+		handler:     handler,
+		network:     "tcp",
+		localAddr:   ParseTCPAddr(IPAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
+		remoteAddr:  ParseTCPAddr(IPAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
+		connKeyArg:  connKeyArg,
+		connKey:     connKey,
+		closing:     false,
+		localClosed: false,
+		aborting:    false,
+		ctx:         ctx,
+		cancel:      cancel,
+		canWrite:    sync.NewCond(&sync.Mutex{}),
 	}
 
 	// Associate conn with key and save to the global map.
@@ -116,112 +112,57 @@ func (conn *tcpConn) Receive(data []byte) error {
 	return nil
 }
 
-func (conn *tcpConn) tryWriteLocal() {
-	lwipMutex.Lock()
-	defer lwipMutex.Unlock()
-
-Loop:
-	for {
-		// Using 2 select to ensure data in localWriteSubCh will be drained first.
-		select {
-		case data := <-conn.localWriteSubCh:
-			written, err := conn.tcpWrite(data)
-			if !written || err != nil {
-				// Data not written, buffer again.
-				conn.localWriteSubCh <- data
-				break Loop
-			}
-		default:
-		}
-
-		select {
-		case data := <-conn.localWriteSubCh:
-			written, err := conn.tcpWrite(data)
-			if !written || err != nil {
-				// Data not written, buffer again.
-				conn.localWriteSubCh <- data
-				break Loop
-			}
-		case data := <-conn.localWriteCh:
-			written, err := conn.tcpWrite(data)
-			if !written || err != nil {
-				// If writing is not success, buffer to the sub channel, and next time
-				// we try to read from the sub channel first. Using a sub channel here
-				// because the data must be sent in correct order and we have no way
-				// to prepend data to the head of a channel.
-				conn.localWriteSubCh <- data
-				break Loop
-			}
-		default:
-			break Loop
-		}
-	}
-
-	// Actually send data.
-	// TODO: occasionally receive EXC_BAD_ACCESS error when calling tcp_output() on iOS
-	err := C.tcp_output(conn.pcb)
-	if err != C.ERR_OK {
-		// TODO: what to do?
-	}
-}
-
 // tcpWrite enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
 // but instead tells the caller that data is not successfully enqueued, and should try
 // again another time. By calling this function, the lwIP thread is assumed to be already
 // locked by the caller.
-func (conn *tcpConn) tcpWrite(data []byte) (bool, error) {
-	if len(data) <= int(conn.pcb.snd_buf) {
-		// Enqueue data, data copy here! Copying is required because lwIP must keep the data until they
-		// are acknowledged (receiving ACK segments) by other hosts for retransmission purposes, it's
-		// not obvious how to implement zero-copy here.
-		err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
-		if err == C.ERR_OK {
-			return true, nil
-		} else if err != C.ERR_MEM {
-			return false, errors.New(fmt.Sprintf("lwip tcp_write failed with error code: %v", int(err)))
-		}
+func (conn *tcpConn) tcpWrite(data []byte) (int, error) {
+	err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
+	if err == C.ERR_OK {
+		C.tcp_output(conn.pcb)
+		return len(data), nil
+	} else if err == C.ERR_MEM {
+		return 0, nil
 	}
-	return false, nil
+	return 0, fmt.Errorf("lwip tcp_write failed with error code: %v", int(err))
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
 	if conn.isLocalClosed() {
-		return 0, errors.New(fmt.Sprintf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr()))
+		return 0, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
 	}
 	if conn.isAborting() {
-		return 0, errors.New(fmt.Sprintf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr()))
+		return 0, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
 	}
 
-	var written = false
-	var err error
-
-	// If there isn't any pending data left, we can try to write the data first to avoid one copy,
-	// if there is pending data not yet sent, we must copy and buffer the data in order to maintain
-	// the transmission order.
-	if !conn.hasPendingLocalData() {
+	totalWritten := 0
+	conn.canWrite.L.Lock()
+	for len(data) > 0 {
 		lwipMutex.Lock()
-		written, err = conn.tcpWrite(data)
+		toWrite := len(data)
+		if toWrite > int(conn.pcb.snd_buf) {
+			// Write at most the size of the LWIP buffer.
+			toWrite = int(conn.pcb.snd_buf)
+		}
+		if toWrite > 0 {
+			written, err := conn.tcpWrite(data[0:toWrite])
+			totalWritten += written
+			if err != nil {
+				lwipMutex.Unlock()
+				conn.canWrite.L.Unlock()
+				return totalWritten, err
+			}
+			data = data[written:len(data)]
+		}
 		lwipMutex.Unlock()
-		if err != nil {
-			return 0, err
+		if len(data) == 0 {
+			break // Don't block if all the data has been written.
 		}
+		conn.canWrite.Wait()
 	}
+	conn.canWrite.L.Unlock()
 
-	if !written {
-		select {
-		// Buffer the data here and try sending it later, one could set a smaller localWriteCh size
-		// to limit data copying times and memory usage, by sacrificing performance. But writing data
-		// to local is quite fast, thus it should be safe even has a size of 1 localWriteCh.
-		case conn.localWriteCh <- append([]byte(nil), data...): // data copy here!
-		case <-conn.ctx.Done():
-			return 0, conn.ctx.Err()
-		}
-	}
-
-	// Try to send pending data if any, and call tcp_output().
-	go conn.tryWriteLocal()
-
-	return len(data), nil
+	return totalWritten, nil
 }
 
 func (conn *tcpConn) Sent(len uint16) error {
@@ -248,17 +189,10 @@ func (conn *tcpConn) isLocalClosed() bool {
 	return conn.localClosed
 }
 
-func (conn *tcpConn) hasPendingLocalData() bool {
-	if len(conn.localWriteCh) > 0 || len(conn.localWriteSubCh) > 0 {
-		return true
-	}
-	return false
-}
-
 func (conn *tcpConn) CheckState() error {
-	// Still have data to send
-	if conn.hasPendingLocalData() && !conn.isLocalClosed() {
-		go conn.tryWriteLocal()
+	if !conn.isLocalClosed() {
+		// Signal the writer to try writting.
+		conn.canWrite.Broadcast()
 		// Return and wait for the Sent() callback to be called, and then check again.
 		return NewLWIPError(LWIP_ERR_OK)
 	}
@@ -310,7 +244,7 @@ func (conn *tcpConn) closeInternal() error {
 	if err == C.ERR_OK {
 		return nil
 	} else {
-		return errors.New(fmt.Sprint("close TCP connection failed, lwip error code %d", int(err)))
+		return errors.New(fmt.Sprintf("close TCP connection failed, lwip error code %d", int(err)))
 	}
 }
 
