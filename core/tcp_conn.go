@@ -135,10 +135,10 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 
 	for len(data) > 0 {
 		if conn.isLocalClosed() {
-			return 0, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
+			return totalWritten, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
 		}
 		if conn.isAborting() {
-			return 0, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
+			return totalWritten, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
 		}
 
 		lwipMutex.Lock()
