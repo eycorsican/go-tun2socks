@@ -128,16 +128,16 @@ func (conn *tcpConn) tcpWrite(data []byte) (int, error) {
 }
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
-	if conn.isLocalClosed() {
-		return 0, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
-	}
-	if conn.isAborting() {
-		return 0, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
-	}
-
 	totalWritten := 0
 	conn.canWrite.L.Lock()
 	for len(data) > 0 {
+		if conn.isLocalClosed() {
+			return 0, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
+		}
+		if conn.isAborting() {
+			return 0, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
+		}
+
 		lwipMutex.Lock()
 		toWrite := len(data)
 		if toWrite > int(conn.pcb.snd_buf) {
@@ -224,6 +224,7 @@ func (conn *tcpConn) setLocalClosed() error {
 	defer conn.Unlock()
 
 	conn.localClosed = true
+	conn.canWrite.Broadcast()
 	return nil
 }
 
@@ -258,6 +259,7 @@ func (conn *tcpConn) Abort() {
 	defer conn.Unlock()
 
 	conn.aborting = true
+	conn.canWrite.Broadcast()
 }
 
 // The corresponding pcb is already freed when this callback is called
