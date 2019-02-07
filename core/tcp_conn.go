@@ -129,7 +129,10 @@ func (conn *tcpConn) tcpWrite(data []byte) (int, error) {
 
 func (conn *tcpConn) Write(data []byte) (int, error) {
 	totalWritten := 0
+
 	conn.canWrite.L.Lock()
+	defer conn.canWrite.L.Unlock()
+
 	for len(data) > 0 {
 		if conn.isLocalClosed() {
 			return 0, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
@@ -149,7 +152,6 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 			totalWritten += written
 			if err != nil {
 				lwipMutex.Unlock()
-				conn.canWrite.L.Unlock()
 				return totalWritten, err
 			}
 			data = data[written:len(data)]
@@ -160,7 +162,6 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 		}
 		conn.canWrite.Wait()
 	}
-	conn.canWrite.L.Unlock()
 
 	return totalWritten, nil
 }
