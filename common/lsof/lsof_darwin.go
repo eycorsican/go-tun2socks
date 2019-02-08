@@ -10,8 +10,22 @@ import (
 )
 
 func GetCommandNameBySocket(network string, addr vnet.Address, port vnet.Port) (string, error) {
-	// See `lsof -F?` for help
-	out, err := exec.Command("lsof", "-n", "-Fc", fmt.Sprintf("-i%s@%s:%s", network, addr, port)).Output()
+	pattern := ""
+	switch network {
+	case "tcp":
+		pattern = fmt.Sprintf("-i%s@%s:%s", network, addr, port)
+	case "udp":
+		// The current approach isn't quite accurate for
+		// udp sockets, as more than one processes can
+		// listen on the same udp port. Moreover, if
+		// the application closes the socket immediately
+		// after sending out the packet (e.g. it just
+		// uploading data but not receving any data),
+		// we may not be able to find it.
+		pattern = fmt.Sprintf("-i%s:%s", network, port)
+	default:
+	}
+	out, err := exec.Command("lsof", "-n", "-Fc", pattern).Output()
 	if err != nil {
 		if len(out) != 0 {
 			return "", errors.New(fmt.Sprintf("%v, output: %s", err, out))

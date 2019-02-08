@@ -18,27 +18,29 @@ func NewApplogFilter(w io.Writer) Filter {
 }
 
 func (w *applogFilter) Write(buf []byte) (int, error) {
-	if v := packet.PeekIPVersion(buf); v == packet.IPVERSION_4 {
-		network := packet.PeekProtocol(buf)
-		// TODO log for udp packets
-		if network == "tcp" {
-			// TODO only log once for each established tcp connection
-			if packet.IsSYNSegment(buf) {
-				srcAddr := packet.PeekSourceAddress(buf)
-				srcPort := packet.PeekSourcePort(buf)
-				destAddr := packet.PeekDestinationAddress(buf)
-				destPort := packet.PeekDestinationPort(buf)
-				// Don't block
-				go func() {
-					name, err := lsof.GetCommandNameBySocket(network, srcAddr, srcPort)
-					if err != nil {
-						log.Printf("failed to get app information by socket %v:%v:%v", network, srcAddr, srcPort)
-					} else {
-						log.Printf("|%v| is connecting %v:%v:%v", name, network, destAddr, destPort)
-					}
-				}()
-			}
-		}
+	if v := packet.PeekIPVersion(buf); v != packet.IPVERSION_4 {
+		return w.writer.Write(buf)
 	}
+	network := packet.PeekProtocol(buf)
+	// TODO may be overwhelmed by udp logs, better skip udp?
+	if network != "tcp" && network != "udp" {
+		return w.writer.Write(buf)
+	}
+	if network == "tcp" && !packet.IsSYNSegment(buf) {
+		return w.writer.Write(buf)
+	}
+
+	srcAddr := packet.PeekSourceAddress(buf)
+	srcPort := packet.PeekSourcePort(buf)
+	destAddr := packet.PeekDestinationAddress(buf)
+	destPort := packet.PeekDestinationPort(buf)
+	go func() {
+		name, err := lsof.GetCommandNameBySocket(network, srcAddr, srcPort)
+		if err != nil {
+			// log.Printf("failed to get app information by socket %v:%v:%v: %v", network, srcAddr, srcPort, err)
+		} else {
+			log.Printf("|%v| is connecting %v:%v:%v", name, network, destAddr, destPort)
+		}
+	}()
 	return w.writer.Write(buf)
 }
