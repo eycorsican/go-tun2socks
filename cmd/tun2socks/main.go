@@ -112,16 +112,16 @@ func main() {
 			log.Fatalf("start V instance failed: %v", err)
 		}
 
+		if *applog {
+			log.Printf("App logging is enabled")
+			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
+		}
+
 		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
 		if *gateway != "" {
 			log.Printf("Dynamic routing is enabled")
 			router := v.GetFeature(vrouting.RouterType()).(vrouting.Router)
 			lwipWriter = filter.NewRoutingFilter(lwipWriter, router, *gateway).(io.Writer)
-		}
-
-		if *applog {
-			log.Printf("App logging is enabled")
-			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 		}
 
 		sniffingConfig := &vproxyman.SniffingConfig{
