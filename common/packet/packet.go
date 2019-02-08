@@ -1,4 +1,4 @@
-package route
+package packet
 
 import (
 	vnet "v2ray.com/core/common/net"
@@ -28,6 +28,15 @@ func PeekProtocol(data []byte) string {
 	default:
 		return "unknown"
 	}
+}
+
+func PeekSourceAddress(data []byte) vnet.Address {
+	return vnet.IPAddress(data[12:16])
+}
+
+func PeekSourcePort(data []byte) vnet.Port {
+	ihl := uint8(data[0] & 0x0f)
+	return vnet.PortFromBytes(data[ihl*4 : ihl*4+2])
 }
 
 func PeekDestinationAddress(data []byte) vnet.Address {

@@ -47,6 +47,7 @@ func main() {
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 	delayICMP := flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
 	udpTimeout := flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in socks and Shadowsocks")
+	applog := flag.Bool("applog", false, "Enable app logging (V2Ray handler only)")
 
 	flag.Parse()
 
@@ -70,6 +71,7 @@ func main() {
 
 	// Wrap a writer to delay ICMP packets if delay time is not zero.
 	if *delayICMP > 0 {
+		log.Printf("ICMP packets will be delayed for %dms", *delayICMP)
 		lwipWriter = filter.NewICMPFilter(lwipWriter, *delayICMP).(io.Writer)
 	}
 
@@ -112,8 +114,14 @@ func main() {
 
 		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
 		if *gateway != "" {
+			log.Printf("Dynamic routing is enabled")
 			router := v.GetFeature(vrouting.RouterType()).(vrouting.Router)
 			lwipWriter = filter.NewRoutingFilter(lwipWriter, router, *gateway).(io.Writer)
+		}
+
+		if *applog {
+			log.Printf("App logging is enabled")
+			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 		}
 
 		sniffingConfig := &vproxyman.SniffingConfig{
@@ -148,7 +156,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("running tun2socks")
+	log.Printf("Running tun2socks")
 
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)
