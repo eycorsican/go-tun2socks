@@ -6,7 +6,6 @@ package core
 */
 import "C"
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -28,8 +27,6 @@ type tcpConn struct {
 	closing     bool
 	localClosed bool
 	aborting    bool
-	ctx         context.Context
-	cancel      context.CancelFunc
 	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
 }
 
@@ -43,8 +40,6 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		return nil, errors.New("no registered TCP connection handlers found")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	conn := &tcpConn{
 		pcb:         pcb,
 		handler:     handler,
@@ -56,8 +51,6 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		closing:     false,
 		localClosed: false,
 		aborting:    false,
-		ctx:         ctx,
-		cancel:      cancel,
 		canWrite:    sync.NewCond(&sync.Mutex{}),
 	}
 
@@ -238,8 +231,6 @@ func (conn *tcpConn) closeInternal() error {
 
 	conn.Release()
 
-	conn.cancel()
-
 	// TODO: may return ERR_MEM if no memory to allocate segments use for closing the conn,
 	// should check and try again in Sent() for Poll() callbacks.
 	err := C.tcp_close(conn.pcb)
@@ -266,7 +257,6 @@ func (conn *tcpConn) Abort() {
 // The corresponding pcb is already freed when this callback is called
 func (conn *tcpConn) Err(err error) {
 	conn.Release()
-	conn.cancel()
 	conn.handler.DidClose(conn)
 }
 
