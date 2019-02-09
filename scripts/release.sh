@@ -14,7 +14,7 @@ else
 	token=$GITHUB_API_TOKEN
 fi
 
-declare -a executables=("tun2socks-darwin-10.6-amd64" "tun2socks-linux-amd64" "tun2socks-windows-4.0-amd64.exe")
+declare -a executables=("tun2socks-darwin-10.6-amd64" "tun2socks-linux-amd64" "tun2socks-windows-4.0-amd64.exe" "tun2socks-linux-arm64")
 eval $list_assets_cmd
 if [ $? -ne 0 ]; then
 	for i in ${executables[@]}; do
