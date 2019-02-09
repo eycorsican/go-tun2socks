@@ -39,7 +39,7 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 		if err != nil {
 			// log.Printf("failed to get app information by socket %v:%v:%v: %v", network, srcAddr, srcPort, err)
 		} else {
-			log.Printf("|%v| is connecting %v:%v:%v", name, network, destAddr, destPort)
+			log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr, destPort)
 		}
 	}()
 	return w.writer.Write(buf)
