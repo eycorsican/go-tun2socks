@@ -34,7 +34,7 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	conn, found := udpConns.Load(connId)
 	if !found {
 		if udpConnectionHandler == nil {
-			panic("no registered UDP connection handlers found")
+			panic("must register a UDP connection handler")
 		}
 		var err error
 		conn, err = NewUDPConnection(pcb,

@@ -8,6 +8,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"unsafe"
 )
 
@@ -22,10 +23,21 @@ func TCPAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 	if err != C.ERR_OK {
 		return err
 	}
-	_, err2 := NewTCPConnection(newpcb, tcpConnectionHandler)
+
+	if tcpConnectionHandler == nil {
+		panic("must register a TCP connection handler")
+	}
+
+	connKeyArg := NewConnKeyArg()
+	connKey := rand.Uint32()
+	SetConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
+	conn, err2 := NewTCPConnection(newpcb, tcpConnectionHandler, connKey, connKeyArg)
 	if err2 != nil {
 		return C.ERR_CONN
 	}
+	// Associate conn with key and save to the global map.
+	tcpConns.Store(connKey, conn)
+
 	return C.ERR_OK
 }
 

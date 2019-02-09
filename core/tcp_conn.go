@@ -8,7 +8,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"sync"
 	"unsafe"
@@ -30,15 +29,15 @@ type tcpConn struct {
 	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
 }
 
-func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
-	// prepare key
-	connKeyArg := NewConnKeyArg()
-	connKey := rand.Uint32()
-	SetConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
+func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey uint32, connKeyArg unsafe.Pointer) (Connection, error) {
+	// Pass the key as arg for subsequent tcp callbacks.
+	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
 
-	if tcpConnectionHandler == nil {
-		return nil, errors.New("no registered TCP connection handlers found")
-	}
+	// Register callbacks.
+	SetTCPRecvCallback(pcb)
+	SetTCPSentCallback(pcb)
+	SetTCPErrCallback(pcb)
+	SetTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
 	conn := &tcpConn{
 		pcb:         pcb,
@@ -53,17 +52,6 @@ func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		aborting:    false,
 		canWrite:    sync.NewCond(&sync.Mutex{}),
 	}
-
-	// Associate conn with key and save to the global map.
-	tcpConns.Store(connKey, conn)
-
-	// Pass the key as arg for subsequent tcp callbacks.
-	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
-
-	SetTCPRecvCallback(pcb)
-	SetTCPSentCallback(pcb)
-	SetTCPErrCallback(pcb)
-	SetTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
 	// Unlocks lwip thread during connecting remote host, gives other goroutines
 	// chances to interact with the lwip thread. Assuming lwip thread has already
