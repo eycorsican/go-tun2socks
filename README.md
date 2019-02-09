@@ -10,10 +10,10 @@ Tested and worked on macOS, Linux and Windows, iOS and Android are also supporte
 
 ```
                                                                           core.NewLWIPStack()
-                                                                                   +
-                                                                                   |
-                                                                                   |
-                            Dynamically change routes                              |
+                                                   Log process names               +
+                                                   Delay ICMP packets              |
+                                                            |                      |
+                            Dynamically change routes       |                      |
                       +-------------------------------------+                      |              TCP/UDP               core.RegisterTCPConnectionHandler()
                       |                                     |                      |
                       |                                     |     core.Input()     |           core.Connection          core.RegisterUDPConnectionHandler()
@@ -42,6 +42,7 @@ Application +-> Routing table +-->                                              
 - Support proxy handlers: `SOCKS5`, `Shadowsocks`, `V2Ray` (DNS cache is enabled in these handlers by default)
 - Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
 - Intercepting DNS requests and dispatching them with V2Ray's flexible DNS client (V2Ray proxy handler only)
+- Log names of processes that create internet connections: `-applog` (V2Ray proxy handler only, UNIXs only)
 
 ## Build
 
@@ -154,7 +155,7 @@ route add 1.2.3.4 192.168.0.1 metric 5
 ## A few notes for using V2Ray proxy handler
 - Using V2Ray proxy handler: `tun2socks -proxyType v2ray -vconfig config.json`
 - V2Ray proxy handler dials connections with a [V2Ray Instance](https://github.com/v2ray/v2ray-core/blob/master/functions.go)
-- Configuration file V2Ray must in JSON format
+- Configuration file must in JSON format
 - Proxy server addresses in the configuration file should be IPs and not domains except your system DNS will match "direct" rules
 - Configuration file should not contain direct `domain` rules, since they cause infinitely looping requests
 - Dynamic routing happens prior to packets input to lwIP, the [V2Ray Router](https://github.com/v2ray/v2ray-core/blob/master/features/routing/router.go) is used to check if the IP packet matching "direct" tag, information available for the matching process are (protocol, destination ip, destination port)
