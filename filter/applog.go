@@ -37,10 +37,9 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 	go func() {
 		name, err := lsof.GetCommandNameBySocket(network, srcAddr, srcPort)
 		if err != nil {
-			// log.Printf("failed to get app information by socket %v:%v:%v: %v", network, srcAddr, srcPort, err)
-		} else {
-			log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr, destPort)
+			name = "unknown process"
 		}
+		log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr, destPort)
 	}()
 	return w.writer.Write(buf)
 }
