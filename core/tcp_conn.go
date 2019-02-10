@@ -172,21 +172,18 @@ func (conn *tcpConn) isLocalClosed() bool {
 }
 
 func (conn *tcpConn) CheckState() error {
-	if !conn.isLocalClosed() {
-		// Signal the writer to try writting.
-		conn.canWrite.Broadcast()
-		// Return and wait for the Sent() callback to be called, and then check again.
-		return NewLWIPError(LWIP_ERR_OK)
-	}
-
-	if conn.isClosing() || conn.isLocalClosed() {
-		conn.closeInternal()
-	}
-
 	if conn.isAborting() {
 		conn.abortInternal()
 		return NewLWIPError(LWIP_ERR_ABRT)
 	}
+
+	if conn.isClosing() || conn.isLocalClosed() {
+		conn.closeInternal()
+		return NewLWIPError(LWIP_ERR_OK)
+	}
+
+	// Signal the writer to try writting.
+	conn.canWrite.Broadcast()
 
 	return NewLWIPError(LWIP_ERR_OK)
 }
