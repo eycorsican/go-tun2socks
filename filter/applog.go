@@ -3,6 +3,8 @@ package filter
 import (
 	"io"
 	"log"
+	"net"
+	"strings"
 
 	"github.com/eycorsican/go-tun2socks/common/lsof"
 	"github.com/eycorsican/go-tun2socks/common/packet"
@@ -39,7 +41,12 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 		if err != nil {
 			name = "unknown process"
 		}
-		log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr, destPort)
+		domainNames, _ := net.LookupAddr(destAddr.String())
+		if len(domainNames) > 0 {
+			log.Printf("[%v] is connecting %v:%v:%v (%v)", name, network, destAddr, destPort, strings.TrimSuffix(domainNames[0], "."))
+		} else {
+			log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr, destPort)
+		}
 	}()
 	return w.writer.Write(buf)
 }
