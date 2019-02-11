@@ -47,7 +47,7 @@ func main() {
 	proxyPassword := flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 	delayICMP := flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
 	udpTimeout := flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in socks and Shadowsocks")
-	applog := flag.Bool("applog", false, "Enable app logging (V2Ray handler only)")
+	applog := flag.Bool("applog", false, "Enable app logging (V2Ray and SOCKS5 handler)")
 
 	flag.Parse()
 
@@ -82,6 +82,10 @@ func main() {
 		core.RegisterUDPConnectionHandler(echo.NewUDPHandler())
 		break
 	case "socks":
+		if *applog {
+			log.Printf("App logging is enabled")
+			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
+		}
 		core.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyHost, proxyPort))
 		core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyHost, proxyPort, *udpTimeout))
 		break

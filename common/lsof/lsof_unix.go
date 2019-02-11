@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	// TODO remove v2ray dep
 	vnet "v2ray.com/core/common/net"
 )
 
