@@ -8,7 +8,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"unsafe"
 )
 
@@ -28,15 +27,15 @@ func tcpAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.er
 		panic("must register a TCP connection handler")
 	}
 
-	connKeyArg := newConnKeyArg()
-	connKey := rand.Uint32()
-	setConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
-	conn, err2 := newTCPConnection(newpcb, tcpConnectionHandler, connKey, connKeyArg)
-	if err2 != nil {
-		return C.ERR_CONN
+	if _, err2 := newTCPConnection(newpcb, tcpConnectionHandler); err2 != nil {
+		if err2.(*lwipError).Code == LWIP_ERR_ABRT {
+			return C.ERR_ABRT
+		} else if err2.(*lwipError).Code == LWIP_ERR_OK {
+			return C.ERR_OK
+		} else {
+			return C.ERR_CONN
+		}
 	}
-	// Associate conn with key and save to the global map.
-	tcpConns.Store(connKey, conn)
 
 	return C.ERR_OK
 }
@@ -76,7 +75,7 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	handlerErr := conn.(Connection).Receive(buf)
 
 	if handlerErr != nil {
-		C.tcp_abort(tpcb)
+		conn.(Connection).Abort()
 		return C.ERR_ABRT
 	}
 
@@ -123,6 +122,9 @@ func tcpPollFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb) C.err_t {
 		} else if err.(*lwipError).Code == LWIP_ERR_OK {
 			return C.ERR_OK
 		}
+	} else {
+		C.tcp_abort(tpcb)
+		return C.ERR_ABRT
 	}
 	return C.ERR_OK
 }

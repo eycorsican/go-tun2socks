@@ -8,6 +8,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
 	"unsafe"
@@ -30,7 +31,11 @@ type tcpConn struct {
 	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
 }
 
-func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey uint32, connKeyArg unsafe.Pointer) (Connection, error) {
+func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
+	connKeyArg := newConnKeyArg()
+	connKey := rand.Uint32()
+	setConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
+
 	// Pass the key as arg for subsequent tcp callbacks.
 	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
 
@@ -55,6 +60,9 @@ func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey 
 		canWrite:    sync.NewCond(&sync.Mutex{}),
 	}
 
+	// Associate conn with key and save to the global map.
+	tcpConns.Store(connKey, conn)
+
 	// Unlocks lwip thread during connecting remote host, gives other goroutines
 	// chances to interact with the lwip thread. Assuming lwip thread has already
 	// been locked.
@@ -62,7 +70,8 @@ func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey 
 	err := handler.Connect(conn, conn.RemoteAddr())
 	lwipMutex.Lock()
 	if err != nil {
-		return nil, err
+		conn.abortInternal()
+		return nil, NewLWIPError(LWIP_ERR_ABRT)
 	}
 	return conn, nil
 }
