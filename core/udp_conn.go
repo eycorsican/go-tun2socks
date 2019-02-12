@@ -27,7 +27,7 @@ type udpConn struct {
 	closed     bool
 }
 
-func NewUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
+func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
 	conn := &udpConn{
 		handler:    handler,
 		pcb:        pcb,

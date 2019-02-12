@@ -9,8 +9,8 @@ import (
 	"unsafe"
 )
 
-//export Output
-func Output(p *C.struct_pbuf) C.err_t {
+//export output
+func output(p *C.struct_pbuf) C.err_t {
 	// In most case, all data are in the same pbuf struct, data copying can be avoid by
 	// backing Go slice with C array. Buf if there are multiple pbuf structs holding the
 	// data, we must copy data for sending them in one pass.

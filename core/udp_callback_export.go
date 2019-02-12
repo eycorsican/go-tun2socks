@@ -37,7 +37,7 @@ func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 			panic("must register a UDP connection handler")
 		}
 		var err error
-		conn, err = NewUDPConnection(pcb,
+		conn, err = newUDPConnection(pcb,
 			udpConnectionHandler,
 			*addr,
 			*destAddr,
