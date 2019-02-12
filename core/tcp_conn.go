@@ -26,6 +26,7 @@ type tcpConn struct {
 	closing     bool
 	localClosed bool
 	aborting    bool
+	errored     bool
 	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
 }
 
@@ -50,6 +51,7 @@ func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey 
 		closing:     false,
 		localClosed: false,
 		aborting:    false,
+		errored:     false,
 		canWrite:    sync.NewCond(&sync.Mutex{}),
 	}
 
@@ -115,11 +117,14 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 	defer conn.canWrite.L.Unlock()
 
 	for len(data) > 0 {
-		if conn.isLocalClosed() {
-			return totalWritten, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
+		if conn.isErrored() {
+			return totalWritten, fmt.Errorf("connection %v->%v encountered a fatal error", conn.LocalAddr(), conn.RemoteAddr())
 		}
 		if conn.isAborting() {
 			return totalWritten, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
+		}
+		if conn.isLocalClosed() {
+			return totalWritten, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
 		}
 
 		lwipMutex.Lock()
@@ -171,6 +176,12 @@ func (conn *tcpConn) isLocalClosed() bool {
 	return conn.localClosed
 }
 
+func (conn *tcpConn) isErrored() bool {
+	conn.Lock()
+	defer conn.Unlock()
+	return conn.errored
+}
+
 func (conn *tcpConn) CheckState() error {
 	if conn.isAborting() {
 		conn.abortInternal()
@@ -211,6 +222,15 @@ func (conn *tcpConn) setLocalClosed() error {
 	return nil
 }
 
+func (conn *tcpConn) setErrored() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	conn.errored = true
+	conn.canWrite.Broadcast()
+	return nil
+}
+
 func (conn *tcpConn) closeInternal() error {
 	C.tcp_arg(conn.pcb, nil)
 	C.tcp_recv(conn.pcb, nil)
@@ -247,6 +267,7 @@ func (conn *tcpConn) Abort() {
 func (conn *tcpConn) Err(err error) {
 	conn.Release()
 	conn.handler.DidClose(conn)
+	conn.setErrored()
 }
 
 func (conn *tcpConn) LocalDidClose() error {
