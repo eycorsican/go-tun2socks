@@ -9,17 +9,16 @@ import "C"
 import (
 	"fmt"
 	"net"
-	"sync"
 	"unsafe"
 )
 
 // ipaddr_ntoa() is using a global static buffer to return result,
 // reentrants are not allowed, caller is required to lock lwipMutex.
-func IPAddrNTOA(ipaddr C.struct_ip_addr) string {
+func ipAddrNTOA(ipaddr C.struct_ip_addr) string {
 	return C.GoString(C.ipaddr_ntoa(&ipaddr))
 }
 
-func IPAddrATON(cp string, addr *C.struct_ip_addr) {
+func ipAddrATON(cp string, addr *C.struct_ip_addr) {
 	ccp := C.CString(cp)
 	C.ipaddr_aton(ccp, addr)
 	C.free(unsafe.Pointer(ccp))
@@ -67,13 +66,4 @@ func ParseUDPAddr(addr string, port uint16) net.Addr {
 		return netAddr
 	}
 	return nil
-}
-
-func GetSyncMapLen(m sync.Map) int {
-	length := 0
-	m.Range(func(_, _ interface{}) bool {
-		length++
-		return true
-	})
-	return length
 }

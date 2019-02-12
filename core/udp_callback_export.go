@@ -9,8 +9,8 @@ import (
 	"unsafe"
 )
 
-//export UDPRecvFn
-func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *C.ip_addr_t, port C.u16_t, destAddr *C.ip_addr_t, destPort C.u16_t) {
+//export udpRecvFn
+func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *C.ip_addr_t, port C.u16_t, destAddr *C.ip_addr_t, destPort C.u16_t) {
 	defer func() {
 		if p != nil {
 			C.pbuf_free(p)
@@ -21,8 +21,8 @@ func UDPRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 		return
 	}
 
-	srcAddr := ParseUDPAddr(IPAddrNTOA(*addr), uint16(port))
-	dstAddr := ParseUDPAddr(IPAddrNTOA(*destAddr), uint16(destPort))
+	srcAddr := ParseUDPAddr(ipAddrNTOA(*addr), uint16(port))
+	dstAddr := ParseUDPAddr(ipAddrNTOA(*destAddr), uint16(destPort))
 	if srcAddr == nil || dstAddr == nil {
 		panic("invalid UDP address")
 	}

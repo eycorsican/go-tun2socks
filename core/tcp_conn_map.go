@@ -48,18 +48,18 @@ var tcpConns sync.Map
 //
 // See also:
 // https://github.com/golang/go/issues/12416
-func NewConnKeyArg() unsafe.Pointer {
+func newConnKeyArg() unsafe.Pointer {
 	return C.new_conn_key_arg()
 }
 
-func FreeConnKeyArg(p unsafe.Pointer) {
+func freeConnKeyArg(p unsafe.Pointer) {
 	C.free_conn_key_arg(p)
 }
 
-func SetConnKeyVal(p unsafe.Pointer, val uint32) {
+func setConnKeyVal(p unsafe.Pointer, val uint32) {
 	C.set_conn_key_val(p, C.uint32_t(val))
 }
 
-func GetConnKeyVal(p unsafe.Pointer) uint32 {
+func getConnKeyVal(p unsafe.Pointer) uint32 {
 	return uint32(C.get_conn_key_val(p))
 }

@@ -29,22 +29,22 @@ type tcpConn struct {
 	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
 }
 
-func NewTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey uint32, connKeyArg unsafe.Pointer) (Connection, error) {
+func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler, connKey uint32, connKeyArg unsafe.Pointer) (Connection, error) {
 	// Pass the key as arg for subsequent tcp callbacks.
 	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
 
 	// Register callbacks.
-	SetTCPRecvCallback(pcb)
-	SetTCPSentCallback(pcb)
-	SetTCPErrCallback(pcb)
-	SetTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
+	setTCPRecvCallback(pcb)
+	setTCPSentCallback(pcb)
+	setTCPErrCallback(pcb)
+	setTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
 	conn := &tcpConn{
 		pcb:         pcb,
 		handler:     handler,
 		network:     "tcp",
-		localAddr:   ParseTCPAddr(IPAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
-		remoteAddr:  ParseTCPAddr(IPAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
+		localAddr:   ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
+		remoteAddr:  ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
 		connKeyArg:  connKeyArg,
 		connKey:     connKey,
 		closing:     false,
@@ -257,7 +257,7 @@ func (conn *tcpConn) LocalDidClose() error {
 
 func (conn *tcpConn) Release() {
 	if _, found := tcpConns.Load(conn.connKey); found {
-		FreeConnKeyArg(conn.connKeyArg)
+		freeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
 	}
 }
