@@ -73,7 +73,7 @@ func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 		conn.abortInternal()
 		return nil, NewLWIPError(LWIP_ERR_ABRT)
 	}
-	return conn, nil
+	return conn, NewLWIPError(LWIP_ERR_OK)
 }
 
 func (conn *tcpConn) RemoteAddr() net.Addr {
@@ -85,11 +85,13 @@ func (conn *tcpConn) LocalAddr() net.Addr {
 }
 
 func (conn *tcpConn) Receive(data []byte) error {
-	if conn.isClosing() {
-		return errors.New(fmt.Sprintf("connection %v->%v was closed by remote", conn.LocalAddr(), conn.RemoteAddr()))
-	}
 	if conn.isAborting() {
-		return errors.New(fmt.Sprintf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr()))
+		conn.abortInternal()
+		return NewLWIPError(LWIP_ERR_ABRT)
+	}
+	if conn.isClosing() {
+		conn.closeInternal()
+		return NewLWIPError(LWIP_ERR_OK)
 	}
 	// Unlocks lwip thread during sending data to remote, gives other goroutines
 	// chances to interact with the lwip thread. Assuming lwip thread has already
@@ -98,10 +100,12 @@ func (conn *tcpConn) Receive(data []byte) error {
 	err := conn.handler.DidReceive(conn, data)
 	lwipMutex.Lock()
 	if err != nil {
-		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
+		conn.abortInternal()
+		conn.canWrite.Broadcast()
+		return NewLWIPError(LWIP_ERR_ABRT)
 	}
 	C.tcp_recved(conn.pcb, C.u16_t(len(data)))
-	return nil
+	return NewLWIPError(LWIP_ERR_OK)
 }
 
 // tcpWrite enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,

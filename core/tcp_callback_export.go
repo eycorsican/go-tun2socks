@@ -72,11 +72,13 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 
 	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
-	handlerErr := conn.(Connection).Receive(buf)
-
-	if handlerErr != nil {
-		conn.(Connection).Abort()
-		return C.ERR_ABRT
+	recvErr := conn.(Connection).Receive(buf)
+	if recvErr != nil {
+		if recvErr.(*lwipError).Code == LWIP_ERR_ABRT {
+			return C.ERR_ABRT
+		} else if recvErr.(*lwipError).Code == LWIP_ERR_OK {
+			return C.ERR_OK
+		}
 	}
 
 	return C.ERR_OK
