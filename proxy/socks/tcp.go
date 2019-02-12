@@ -31,12 +31,16 @@ func NewTCPHandler(proxyHost string, proxyPort uint16) core.ConnectionHandler {
 }
 
 func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
+	// FIXME maybe use a larger buffer?
+	buf := core.NewBytes(core.BufSize) // 2k buf
+
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
+		core.FreeBytes(buf)
 	}()
 
-	_, err := io.Copy(conn, input)
+	_, err := io.CopyBuffer(conn, input, buf)
 	if err != nil {
 		// log.Printf("fetch input failed: %v", err)
 		return
