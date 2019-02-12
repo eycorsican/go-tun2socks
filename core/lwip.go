@@ -13,8 +13,8 @@ import (
 	"unsafe"
 )
 
-const CHECK_TIMEOUTS_INTERVAL = 250                                     // in millisecond
-const TCP_POLL_INTERVAL = 2 * (float32(1000) / CHECK_TIMEOUTS_INTERVAL) // poll every 2 seconds
+const CHECK_TIMEOUTS_INTERVAL = 250 // in millisecond
+const TCP_POLL_INTERVAL = 8         // poll every 4 seconds
 
 type LWIPStack interface {
 	Write([]byte) (int, error)
