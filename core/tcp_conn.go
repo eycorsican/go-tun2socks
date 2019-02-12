@@ -189,6 +189,10 @@ func (conn *tcpConn) CheckState() error {
 }
 
 func (conn *tcpConn) Close() error {
+	lwipMutex.Lock()
+	C.tcp_shutdown(conn.pcb, 0, 1) // Close the TX side ASAP.
+	lwipMutex.Unlock()
+
 	conn.Lock()
 	defer conn.Unlock()
 
