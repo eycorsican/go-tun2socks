@@ -38,11 +38,12 @@ Application +-> Routing table +-->                                              
 
 - Support both TCP and UDP
 - Support both IPv4 and IPv6 (but unfortunately, IPv6 still not usable on Windows because lacks of TUN support)
+- Support DNS caching
 - Support ICMP local echoing with configurable packet delay time
 - Support proxy handlers: `SOCKS5`, `Shadowsocks`, `V2Ray` (DNS cache is enabled in these handlers by default)
 - Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
 - Intercepting DNS requests and dispatching them with V2Ray's flexible DNS client (V2Ray proxy handler only)
-- Log names of processes that create internet connections: `-applog` (V2Ray proxy handler only, UNIXs only)
+- Log names of processes that create internet connections: `-applog` (UNIXs only)
 
 ## Build
 
