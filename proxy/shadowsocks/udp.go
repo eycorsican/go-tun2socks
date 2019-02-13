@@ -27,7 +27,7 @@ type udpHandler struct {
 	timeout     time.Duration
 }
 
-func NewUDPHandler(server, cipher, password string, timeout time.Duration) core.ConnectionHandler {
+func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCache *proxy.DNSCache) core.ConnectionHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
 		log.Fatal(err)
@@ -43,7 +43,7 @@ func NewUDPHandler(server, cipher, password string, timeout time.Duration) core.
 		remoteAddr:  remoteAddr,
 		conns:       make(map[core.Connection]net.PacketConn, 16),
 		targetAddrs: make(map[core.Connection]sssocks.Addr, 16),
-		dnsCache:    proxy.NewDNSCache(),
+		dnsCache:    dnsCache,
 		timeout:     timeout,
 	}
 }
@@ -71,17 +71,19 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.PacketConn) {
 			return
 		}
 
-		h.Lock()
-		targetAddr, ok2 := h.targetAddrs[conn]
-		h.Unlock()
-		if ok2 {
-			_, port, err := net.SplitHostPort(targetAddr.String())
-			if err != nil {
-				log.Fatal("impossible error")
-			}
-			if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
-				h.dnsCache.Store(buf[int(len(addr)):n])
-				return // DNS response
+		if h.dnsCache != nil {
+			h.Lock()
+			targetAddr, ok2 := h.targetAddrs[conn]
+			h.Unlock()
+			if ok2 {
+				_, port, err := net.SplitHostPort(targetAddr.String())
+				if err != nil {
+					log.Fatal("impossible error")
+				}
+				if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
+					h.dnsCache.Store(buf[int(len(addr)):n])
+					return // DNS response
+				}
 			}
 		}
 	}
@@ -109,7 +111,7 @@ func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
 	targetAddr, ok2 := h.targetAddrs[conn]
 	h.Unlock()
 
-	if ok2 {
+	if ok2 && h.dnsCache != nil {
 		_, port, err := net.SplitHostPort(targetAddr.String())
 		if err != nil {
 			log.Fatal("impossible error")

@@ -21,6 +21,7 @@ import (
 
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/filter"
+	"github.com/eycorsican/go-tun2socks/proxy"
 	"github.com/eycorsican/go-tun2socks/proxy/echo"
 	"github.com/eycorsican/go-tun2socks/proxy/redirect"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
@@ -49,6 +50,7 @@ func main() {
 	delayICMP := flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
 	udpTimeout := flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in socks and Shadowsocks")
 	applog := flag.Bool("applog", false, "Enable app logging (V2Ray and SOCKS5 handler)")
+	disableDNSCache := flag.Bool("disableDNSCache", false, "Disable DNS cache (SOCKS5 and Shadowsocks handler)")
 
 	flag.Parse()
 
@@ -92,14 +94,22 @@ func main() {
 			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 		}
 		core.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyHost, proxyPort))
-		core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyHost, proxyPort, *udpTimeout))
+		if *disableDNSCache {
+			core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyHost, proxyPort, *udpTimeout, nil))
+		} else {
+			core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyHost, proxyPort, *udpTimeout, proxy.NewDNSCache()))
+		}
 		break
 	case "shadowsocks":
 		if *proxyCipher == "" || *proxyPassword == "" {
 			log.Fatal("invalid cipher or password")
 		}
 		core.RegisterTCPConnectionHandler(shadowsocks.NewTCPHandler(core.ParseTCPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword))
-		core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout))
+		if *disableDNSCache {
+			core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout, nil))
+		} else {
+			core.RegisterUDPConnectionHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *proxyCipher, *proxyPassword, *udpTimeout, proxy.NewDNSCache()))
+		}
 		break
 	case "v2ray":
 		core.SetBufferPool(vbytespool.GetPool(core.BufSize))
