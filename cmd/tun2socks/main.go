@@ -78,6 +78,12 @@ func main() {
 		lwipWriter = filter.NewICMPFilter(lwipWriter, *delayICMP).(io.Writer)
 	}
 
+	// Wrap a writer to print out processes the creating network connections.
+	if *applog {
+		log.Printf("App logging is enabled")
+		lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
+	}
+
 	// Register TCP and UDP handlers to handle accepted connections.
 	switch *proxyType {
 	case "echo":
@@ -89,10 +95,6 @@ func main() {
 		core.RegisterUDPConnectionHandler(redirect.NewUDPHandler(*proxyServer, *udpTimeout))
 		break
 	case "socks":
-		if *applog {
-			log.Printf("App logging is enabled")
-			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
-		}
 		core.RegisterTCPConnectionHandler(socks.NewTCPHandler(proxyHost, proxyPort))
 		if *disableDNSCache {
 			core.RegisterUDPConnectionHandler(socks.NewUDPHandler(proxyHost, proxyPort, *udpTimeout, nil))
@@ -129,11 +131,6 @@ func main() {
 		v, err := vcore.StartInstance("json", configBytes)
 		if err != nil {
 			log.Fatalf("start V instance failed: %v", err)
-		}
-
-		if *applog {
-			log.Printf("App logging is enabled")
-			lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 		}
 
 		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
