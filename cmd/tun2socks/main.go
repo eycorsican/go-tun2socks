@@ -22,6 +22,7 @@ import (
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/filter"
 	"github.com/eycorsican/go-tun2socks/proxy/echo"
+	"github.com/eycorsican/go-tun2socks/proxy/redirect"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
 	"github.com/eycorsican/go-tun2socks/proxy/v2ray"
@@ -80,6 +81,10 @@ func main() {
 	case "echo":
 		core.RegisterTCPConnectionHandler(echo.NewTCPHandler())
 		core.RegisterUDPConnectionHandler(echo.NewUDPHandler())
+		break
+	case "redirect":
+		core.RegisterTCPConnectionHandler(redirect.NewTCPHandler(*proxyServer))
+		core.RegisterUDPConnectionHandler(redirect.NewUDPHandler(*proxyServer, *udpTimeout))
 		break
 	case "socks":
 		if *applog {
