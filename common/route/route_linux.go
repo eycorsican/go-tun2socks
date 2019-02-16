@@ -7,7 +7,6 @@ import (
 )
 
 func AddRoute(dest, netmask, gateway string) error {
-	return errors.New("not implemented")
 	out, err := exec.Command("ip", "route", "add", dest+"/32", "via", gateway).Output()
 	if err != nil {
 		if len(out) != 0 {
