@@ -202,7 +202,7 @@ building the project by executing `make copy`, or one may integrate this
 copying process into ones building process.
 ```
 
-The core part of this project is the `core` package, it focus on `tun2socks`'s `2` part, the core package has fully IPv4/IPv6, TCP/UDP support, and only depend on lwIP (include a few platform-dependent code) and Go's standard library. On the one hand, IP packets input to or output from the `lwIP Stack` that initialized by `core.NewLWIPStack()`, on the other hand, TCP/UDP connections would "socksified" by the core package and can be handled by your own `core.ConnectionHandler` implementation.
+The core part of this project is the `core` package, it focuses on `tun2socks`'s `2` part, the core package has fully IPv4/IPv6, TCP/UDP support, and only depends on lwIP (including a few [platform-dependent code](https://github.com/eycorsican/go-tun2socks/tree/master/core/src/custom)) and Go's standard library. On the one hand, IP packets input to or output from the `lwIP Stack` that initialized by `core.NewLWIPStack()`, on the other hand, TCP/UDP connections would "socksified" by the core package and can be handled by your own `core.ConnectionHandler` implementation.
 
 As for the `tun` part, different OS may has it's own interfaces.
 
