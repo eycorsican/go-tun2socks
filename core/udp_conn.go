@@ -34,6 +34,7 @@ type udpConn struct {
 	remotePort C.u16_t
 	localPort  C.u16_t
 	state      udpConnState
+	pending    chan []byte
 }
 
 func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
@@ -47,6 +48,7 @@ func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 		localPort:  localPort,
 		remotePort: remotePort,
 		state:      udpNewConn,
+		pending:    make(chan []byte, 1), // For DNS request payload.
 	}
 
 	conn.Lock()
@@ -60,6 +62,19 @@ func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 			conn.Lock()
 			conn.state = udpConnected
 			conn.Unlock()
+			// Once connected, send all pending data.
+		DrainPending:
+			for {
+				select {
+				case data := <-conn.pending:
+					err := conn.handler.DidReceive(conn, data)
+					if err != nil {
+						continue DrainPending
+					}
+				default:
+					break DrainPending
+				}
+			}
 		}
 	}()
 
@@ -89,9 +104,21 @@ func (conn *udpConn) checkState() error {
 	return nil
 }
 
+func (conn *udpConn) isConnecting() bool {
+	conn.Lock()
+	defer conn.Unlock()
+	return conn.state == udpConnecting
+}
+
 func (conn *udpConn) Receive(data []byte) error {
-	// FIXME If state is connecting, we may buffer the data and send them once the
-	// the conn is connected. But UDP is stateless, it's not a must.
+	if conn.isConnecting() {
+		select {
+		// Data will be dropped if pending is full.
+		case conn.pending <- data:
+			return nil
+		default:
+		}
+	}
 	if err := conn.checkState(); err != nil {
 		return err
 	}
