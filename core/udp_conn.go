@@ -13,6 +13,15 @@ import (
 	"unsafe"
 )
 
+type udpConnState uint
+
+const (
+	udpNewConn udpConnState = iota
+	udpConnecting
+	udpConnected
+	udpClosed
+)
+
 type udpConn struct {
 	sync.Mutex
 
@@ -24,7 +33,7 @@ type udpConn struct {
 	remoteIP   C.ip_addr_t
 	remotePort C.u16_t
 	localPort  C.u16_t
-	closed     bool
+	state      udpConnState
 }
 
 func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
@@ -37,12 +46,23 @@ func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 		remoteIP:   remoteIP,
 		localPort:  localPort,
 		remotePort: remotePort,
-		closed:     false,
+		state:      udpNewConn,
 	}
-	err := handler.Connect(conn, conn.RemoteAddr())
-	if err != nil {
-		return nil, err
-	}
+
+	conn.Lock()
+	conn.state = udpConnecting
+	conn.Unlock()
+	go func() {
+		err := handler.Connect(conn, conn.RemoteAddr())
+		if err != nil {
+			conn.Close()
+		} else {
+			conn.Lock()
+			conn.state = udpConnected
+			conn.Unlock()
+		}
+	}()
+
 	return conn, nil
 }
 
@@ -54,9 +74,26 @@ func (conn *udpConn) LocalAddr() net.Addr {
 	return conn.localAddr
 }
 
-func (conn *udpConn) Receive(data []byte) error {
-	if conn.isClosed() {
+func (conn *udpConn) checkState() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	switch conn.state {
+	case udpClosed:
 		return errors.New("connection closed")
+	case udpConnected:
+		return nil
+	case udpNewConn, udpConnecting:
+		return errors.New("not connected")
+	}
+	return nil
+}
+
+func (conn *udpConn) Receive(data []byte) error {
+	// FIXME If state is connecting, we may buffer the data and send them once the
+	// the conn is connected. But UDP is stateless, it's not a must.
+	if err := conn.checkState(); err != nil {
+		return err
 	}
 	err := conn.handler.DidReceive(conn, data)
 	if err != nil {
@@ -66,11 +103,8 @@ func (conn *udpConn) Receive(data []byte) error {
 }
 
 func (conn *udpConn) Write(data []byte) (int, error) {
-	if conn.closed {
-		return 0, errors.New("connection closed")
-	}
-	if conn.pcb == nil {
-		return 0, errors.New("nil udp pcb")
+	if err := conn.checkState(); err != nil {
+		return 0, err
 	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
 	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &conn.remoteIP, conn.remotePort)
@@ -83,19 +117,13 @@ func (conn *udpConn) Sent(len uint16) error {
 	return nil
 }
 
-func (conn *udpConn) isClosed() bool {
-	conn.Lock()
-	defer conn.Unlock()
-	return conn.closed
-}
-
 func (conn *udpConn) Close() error {
 	connId := udpConnId{
 		src: conn.LocalAddr().String(),
 		dst: conn.RemoteAddr().String(),
 	}
 	conn.Lock()
-	conn.closed = true
+	conn.state = udpClosed
 	conn.Unlock()
 	udpConns.Delete(connId)
 	return nil

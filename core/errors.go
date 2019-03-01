@@ -43,6 +43,7 @@ package core
 const (
 	LWIP_ERR_OK int = iota
 	LWIP_ERR_ABRT
+	LWIP_ERR_CONN
 )
 
 type lwipError struct {

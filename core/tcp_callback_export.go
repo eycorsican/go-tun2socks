@@ -46,9 +46,11 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		return err
 	}
 
-	// Only free the pbuf when returning ERR_OK or ERR_ABRT.
+	// Only free the pbuf when returning ERR_OK or ERR_ABRT,
+	// otherwise must not free the pbuf.
+	shouldFreePbuf := true
 	defer func() {
-		if p != nil {
+		if p != nil && shouldFreePbuf {
 			C.pbuf_free(p)
 		}
 	}()
@@ -70,7 +72,6 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		}
 	}
 
-	// create Go slice backed by C array, the slice will not garbage collect by Go runtime
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
 	recvErr := conn.(Connection).Receive(buf)
 	if recvErr != nil {
@@ -78,6 +79,11 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 			return C.ERR_ABRT
 		} else if recvErr.(*lwipError).Code == LWIP_ERR_OK {
 			return C.ERR_OK
+		} else if recvErr.(*lwipError).Code == LWIP_ERR_CONN {
+			// Tell lwip we can't receive data at the moment,
+			// lwip will store it and try again later.
+			shouldFreePbuf = false
+			return C.ERR_CONN
 		}
 	}
 
