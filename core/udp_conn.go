@@ -58,9 +58,7 @@ func (conn *udpConn) Receive(data []byte) error {
 	if conn.isClosed() {
 		return errors.New("connection closed")
 	}
-	lwipMutex.Unlock()
 	err := conn.handler.DidReceive(conn, data)
-	lwipMutex.Lock()
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}

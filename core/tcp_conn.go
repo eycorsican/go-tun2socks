@@ -63,12 +63,7 @@ func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	// Associate conn with key and save to the global map.
 	tcpConns.Store(connKey, conn)
 
-	// Unlocks lwip thread during connecting remote host, gives other goroutines
-	// chances to interact with the lwip thread. Assuming lwip thread has already
-	// been locked.
-	lwipMutex.Unlock()
 	err := handler.Connect(conn, conn.RemoteAddr())
-	lwipMutex.Lock()
 	if err != nil {
 		conn.abortInternal()
 		return nil, NewLWIPError(LWIP_ERR_ABRT)
@@ -93,12 +88,7 @@ func (conn *tcpConn) Receive(data []byte) error {
 		conn.closeInternal()
 		return NewLWIPError(LWIP_ERR_OK)
 	}
-	// Unlocks lwip thread during sending data to remote, gives other goroutines
-	// chances to interact with the lwip thread. Assuming lwip thread has already
-	// been locked.
-	lwipMutex.Unlock()
 	err := conn.handler.DidReceive(conn, data)
-	lwipMutex.Lock()
 	if err != nil {
 		conn.abortInternal()
 		conn.canWrite.Broadcast()
