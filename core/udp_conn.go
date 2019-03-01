@@ -69,8 +69,9 @@ func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 				case data := <-conn.pending:
 					err := conn.handler.DidReceive(conn, data)
 					if err != nil {
-						continue DrainPending
+						break DrainPending
 					}
+					continue DrainPending
 				default:
 					break DrainPending
 				}
