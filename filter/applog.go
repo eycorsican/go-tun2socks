@@ -22,8 +22,7 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 		return w.writer.Write(buf)
 	}
 	network := packet.PeekProtocol(buf)
-	// TODO may be overwhelmed by udp logs, better skip udp?
-	if network != "tcp" && network != "udp" {
+	if network != "tcp" {
 		return w.writer.Write(buf)
 	}
 	if network == "tcp" && !packet.IsSYNSegment(buf) {
