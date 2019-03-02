@@ -111,6 +111,8 @@ nov2:
 	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(BUILD_NOV2_CMD))
 
+travisbuild: xbuild nov2
+
 copy:
 	$(call copy_files)
 
