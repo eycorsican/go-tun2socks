@@ -34,11 +34,11 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 	destAddr := packet.PeekDestinationAddress(buf)
 	destPort := packet.PeekDestinationPort(buf)
 	go func() {
-		name, err := lsof.GetCommandNameBySocket(network, srcAddr, srcPort)
+		name, err := lsof.GetCommandNameBySocket(network, srcAddr.String(), srcPort)
 		if err != nil {
 			name = "unknown process"
 		}
-		log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr, destPort)
+		log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr.String(), destPort)
 	}()
 	return w.writer.Write(buf)
 }

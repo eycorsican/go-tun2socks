@@ -1,3 +1,5 @@
+// +build !nov2
+
 package filter
 
 import (
@@ -48,9 +50,11 @@ func (w *routingFilter) Write(buf []byte) (int, error) {
 	var dest vnet.Destination
 	switch protocol {
 	case "tcp":
-		dest = vnet.TCPDestination(destAddr, destPort)
+		p, _ := vnet.PortFromInt(uint32(destPort))
+		dest = vnet.TCPDestination(vnet.IPAddress(destAddr), p)
 	case "udp":
-		dest = vnet.UDPDestination(destAddr, destPort)
+		p, _ := vnet.PortFromInt(uint32(destPort))
+		dest = vnet.UDPDestination(vnet.IPAddress(destAddr), p)
 	default:
 		panic("invalid protocol")
 	}

@@ -7,7 +7,9 @@ DEBUG_LDFLAGS=''
 RELEASE_LDFLAGS='-s -w'
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
+NOV2_CMDDIR=$(shell pwd)/cmd/tun2socks-nov2
 PROGRAM=tun2socks
+NOV2_PROGRAM=tun2socks-nov2
 SRC_DIR=$(shell pwd)/core
 LWIP_SRC_DIR=$(SRC_DIR)/src
 LWIP_INCLUDE_DIR=$(LWIP_SRC_DIR)/include
@@ -81,6 +83,8 @@ XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=*/
 RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=linux/amd64,linux/arm64,linux/386,linux/mips,linux/mipsle,linux/mips64,linux/mips64le,windows/*,darwin/* $(CMDDIR)"
 WINDOWS_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=windows/amd64 $(CMDDIR)"
 
+BUILD_NOV2_CMD="cd $(NOV2_CMDDIR) && $(GOBUILD) -ldflags $(RELEASE_LDFLAGS) -o $(BUILDDIR)/$(NOV2_PROGRAM) -v -tags nov2"
+
 all: build
 
 build:
@@ -102,6 +106,10 @@ xbuild:
 release:
 	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(RELEASE_CMD))
+
+nov2:
+	mkdir -p $(BUILDDIR)
+	$(call with_copied_files,$(BUILD_NOV2_CMD))
 
 copy:
 	$(call copy_files)
