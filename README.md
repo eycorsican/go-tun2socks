@@ -56,6 +56,7 @@ go get -d ./...
 make clean && make build
 ./build/tun2socks -h
 ```
+### Cross Compiling
 
 An alternative way to build (or cross compile) tun2socks is to use [`xgo`](https://github.com/karalabe/xgo), to use `xgo`, you also need `docker`:
 
@@ -70,6 +71,17 @@ cd $GOPATH/src/github.com/eycorsican/go-tun2socks
 go get -d ./...
 make clean && make release
 ls ./build
+```
+
+### Customizing Build
+
+The default build behavior is to include all available modules, ends up a fat binary that will contain modules you may not need. It's easy to customize the build to include only modules you want by modifying the `Makefile`, for example, you may build `go-tun2socks` with only the `socks` proxy handler by changing [this line](https://github.com/eycorsican/go-tun2socks/blob/45ac13fd65286a964689cbfcba959405961cea45/Makefile#L8):
+```
+# socks handler only
+BUILD_TAGS=socks
+
+# socks handler with DNS cache
+BUILD_TAGS=socks dns
 ```
 
 ## Run
