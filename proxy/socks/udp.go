@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eycorsican/go-tun2socks/common/dns"
 	"github.com/eycorsican/go-tun2socks/core"
-	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
 type udpHandler struct {
@@ -22,11 +22,11 @@ type udpHandler struct {
 	udpConns    map[core.Connection]net.Conn
 	tcpConns    map[core.Connection]net.Conn
 	targetAddrs map[core.Connection]Addr
-	dnsCache    *proxy.DNSCache
+	dnsCache    dns.DnsCache
 	timeout     time.Duration
 }
 
-func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration, dnsCache *proxy.DNSCache) core.ConnectionHandler {
+func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration, dnsCache dns.DnsCache) core.ConnectionHandler {
 	return &udpHandler{
 		proxyHost:   proxyHost,
 		proxyPort:   proxyPort,
@@ -88,7 +88,7 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.Conn) {
 				if err != nil {
 					log.Fatal("impossible error")
 				}
-				if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
+				if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
 					h.dnsCache.Store(buf[int(3+len(addr)):n])
 					return // DNS response
 				}
@@ -159,17 +159,14 @@ func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
 		if err != nil {
 			log.Fatal("impossible error")
 		}
-		if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
+		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
 			if answer := h.dnsCache.Query(data); answer != nil {
-				var buf [1024]byte
-				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {
-					_, err = conn.Write(dnsAnswer)
-					if err != nil {
-						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
-					}
-					h.Close(conn)
-					return nil
+				_, err = conn.Write(answer)
+				if err != nil {
+					return errors.New(fmt.Sprintf("write dns answer failed: %v", err))
 				}
+				h.Close(conn)
+				return nil
 			}
 		}
 	}

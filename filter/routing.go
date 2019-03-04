@@ -1,4 +1,4 @@
-// +build !nov2
+// +build v2ray
 
 package filter
 

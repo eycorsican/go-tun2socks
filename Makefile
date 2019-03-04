@@ -5,11 +5,11 @@ GORUN=$(GOCMD) run
 GOCLEAN=$(GOCMD) clean
 DEBUG_LDFLAGS=''
 RELEASE_LDFLAGS='-s -w'
+BUILD_TAGS=dns socks shadowsocks v2ray redirect echo
+DEBUG_BUILD_TAGS=$(BUILD_TAGS) debug
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
-NOV2_CMDDIR=$(shell pwd)/cmd/tun2socks-nov2
 PROGRAM=tun2socks
-NOV2_PROGRAM=tun2socks-nov2
 SRC_DIR=$(shell pwd)/core
 LWIP_SRC_DIR=$(SRC_DIR)/src
 LWIP_INCLUDE_DIR=$(LWIP_SRC_DIR)/include
@@ -77,13 +77,11 @@ define with_copied_files
 	$(call clear_files)
 endef
 
-DBUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -race -ldflags $(DEBUG_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v -tags debug"
-BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags $(RELEASE_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v"
-XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=*/* $(CMDDIR)"
-RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=linux/amd64,linux/arm64,linux/386,linux/mips,linux/mipsle,linux/mips64,linux/mips64le,windows/*,darwin/* $(CMDDIR)"
-WINDOWS_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) --targets=windows/amd64 $(CMDDIR)"
-
-BUILD_NOV2_CMD="cd $(NOV2_CMDDIR) && $(GOBUILD) -ldflags $(RELEASE_LDFLAGS) -o $(BUILDDIR)/$(NOV2_PROGRAM) -v -tags nov2"
+BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags $(RELEASE_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v -tags '$(BUILD_TAGS)'"
+DBUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -race -ldflags $(DEBUG_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v -tags '$(DEBUG_BUILD_TAGS)'"
+XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) -tags '$(BUILD_TAGS)' --targets=*/* $(CMDDIR)"
+RELEASE_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) -tags '$(BUILD_TAGS)' --targets=linux/amd64,linux/arm64,linux/386,linux/mips,linux/mipsle,linux/mips64,linux/mips64le,windows/*,darwin/* $(CMDDIR)"
+WINDOWS_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) -tags '$(BUILD_TAGS)' --targets=windows/amd64 $(CMDDIR)"
 
 all: build
 
@@ -107,11 +105,7 @@ release:
 	mkdir -p $(BUILDDIR)
 	$(call with_copied_files,$(RELEASE_CMD))
 
-nov2:
-	mkdir -p $(BUILDDIR)
-	$(call with_copied_files,$(BUILD_NOV2_CMD))
-
-travisbuild: xbuild nov2
+travisbuild: xbuild
 
 copy:
 	$(call copy_files)

@@ -14,8 +14,8 @@ import (
 	vsession "v2ray.com/core/common/session"
 	vdns "v2ray.com/core/features/dns"
 
+	cdns "github.com/eycorsican/go-tun2socks/common/dns"
 	"github.com/eycorsican/go-tun2socks/core"
-	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
 func isIPv4(ip net.IP) bool {
@@ -285,7 +285,7 @@ func (h *handler) DidReceive(conn core.Connection, data []byte) error {
 		// handle it with V2Ray's DNS client, otherwise treat as normal TCP/UDP
 		// traffic.
 		if c.target.Network == vnet.Network_UDP &&
-			c.target.Port.Value() == proxy.COMMON_DNS_PORT &&
+			c.target.Port.Value() == cdns.COMMON_DNS_PORT &&
 			h.shouldAcceptDNSQuery(data) {
 
 			// Parse DNS request and hand to V2Ray, upon V2Ray returns []net.IP,

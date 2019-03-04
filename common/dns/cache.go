@@ -1,6 +1,8 @@
+// +build dns
+
 // This file is copied from https://github.com/yinghuocho/gotun2socks/blob/master/udp.go
 
-package proxy
+package dns
 
 import (
 	"log"
@@ -10,21 +12,19 @@ import (
 	"github.com/miekg/dns"
 )
 
-const COMMON_DNS_PORT = 53
-
 type dnsCacheEntry struct {
-	msg *dns.Msg
+	msg []byte
 	exp time.Time
 }
 
-type DNSCache struct {
+type simpleDnsCache struct {
 	servers []string
 	mutex   sync.Mutex
 	storage map[string]*dnsCacheEntry
 }
 
-func NewDNSCache() *DNSCache {
-	cache := &DNSCache{storage: make(map[string]*dnsCacheEntry)}
+func NewSimpleDnsCache() DnsCache {
+	cache := &simpleDnsCache{storage: make(map[string]*dnsCacheEntry)}
 	go cache.cleanUp()
 	return cache
 }
@@ -35,7 +35,7 @@ func cacheKey(q dns.Question) string {
 	return string(append([]byte(q.Name), packUint16(q.Qtype)...))
 }
 
-func (c *DNSCache) cleanUp() {
+func (c *simpleDnsCache) cleanUp() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for {
@@ -56,7 +56,7 @@ func (c *DNSCache) cleanUp() {
 	}
 }
 
-func (c *DNSCache) Query(payload []byte) *dns.Msg {
+func (c *simpleDnsCache) Query(payload []byte) []byte {
 	request := new(dns.Msg)
 	e := request.Unpack(payload)
 	if e != nil {
@@ -77,12 +77,18 @@ func (c *DNSCache) Query(payload []byte) *dns.Msg {
 		delete(c.storage, key)
 		return nil
 	}
-	entry.msg.Id = request.Id
-	// log.Printf("got dns answer with key: %v", key)
-	return entry.msg
+
+	resp := new(dns.Msg)
+	resp.Unpack(entry.msg)
+	resp.Id = request.Id
+	var buf [1024]byte
+	if dnsAnswer, err := resp.PackBuffer(buf[:]); err != nil {
+		return append([]byte(nil), dnsAnswer...)
+	}
+	return nil
 }
 
-func (c *DNSCache) Store(payload []byte) {
+func (c *simpleDnsCache) Store(payload []byte) {
 	resp := new(dns.Msg)
 	e := resp.Unpack(payload)
 	if e != nil {
@@ -99,7 +105,7 @@ func (c *DNSCache) Store(payload []byte) {
 	defer c.mutex.Unlock()
 	key := cacheKey(resp.Question[0])
 	c.storage[key] = &dnsCacheEntry{
-		msg: resp,
+		msg: payload,
 		exp: time.Now().Add(time.Duration(resp.Answer[0].Header().Ttl) * time.Second),
 	}
 	log.Printf("stored dns answer with key: %v, ttl: %v sec", key, resp.Answer[0].Header().Ttl)
