@@ -1,8 +1,6 @@
-// +build dns
-
 // This file is copied from https://github.com/yinghuocho/gotun2socks/blob/master/udp.go
 
-package dns
+package cache
 
 import (
 	"log"
@@ -10,6 +8,8 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+
+	cdns "github.com/eycorsican/go-tun2socks/common/dns"
 )
 
 type dnsCacheEntry struct {
@@ -23,7 +23,7 @@ type simpleDnsCache struct {
 	storage map[string]*dnsCacheEntry
 }
 
-func NewSimpleDnsCache() DnsCache {
+func NewSimpleDnsCache() cdns.DnsCache {
 	cache := &simpleDnsCache{storage: make(map[string]*dnsCacheEntry)}
 	go cache.cleanUp()
 	return cache

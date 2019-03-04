@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	"github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/dns/cache"
 )
 
 func init() {
@@ -15,7 +15,7 @@ func init() {
 		if *args.DisableDnsCache {
 			dnsCache = nil
 		} else {
-			dnsCache = dns.NewSimpleDnsCache()
+			dnsCache = cache.NewSimpleDnsCache()
 		}
 	})
 }
