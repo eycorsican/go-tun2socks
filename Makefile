@@ -3,8 +3,9 @@ XGOCMD=xgo
 GOBUILD=$(GOCMD) build
 GORUN=$(GOCMD) run
 GOCLEAN=$(GOCMD) clean
+VERSION=$(shell git describe --tags)
 DEBUG_LDFLAGS=''
-RELEASE_LDFLAGS='-s -w'
+RELEASE_LDFLAGS='-s -w -X main.version=$(VERSION)'
 BUILD_TAGS=dns socks shadowsocks v2ray redirect echo
 DEBUG_BUILD_TAGS=$(BUILD_TAGS) debug
 BUILDDIR=$(shell pwd)/build

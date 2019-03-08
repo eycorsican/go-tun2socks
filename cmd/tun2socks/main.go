@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -16,6 +17,8 @@ import (
 	"github.com/eycorsican/go-tun2socks/tun"
 )
 
+var version = "undefined"
+
 var handlerCreater = make(map[string]func(), 0)
 
 func registerHandlerCreater(name string, creater func()) {
@@ -29,6 +32,7 @@ func addPostFlagsInitFn(fn func()) {
 }
 
 type CmdArgs struct {
+	Version         *bool
 	TunName         *string
 	TunAddr         *string
 	TunGw           *string
@@ -60,6 +64,7 @@ const (
 )
 
 func main() {
+	args.Version = flag.Bool("version", false, "Print version")
 	args.TunName = flag.String("tunName", "tun1", "TUN interface name")
 	args.TunAddr = flag.String("tunAddr", "240.0.0.2", "TUN interface address")
 	args.TunGw = flag.String("tunGw", "240.0.0.1", "TUN interface gateway")
@@ -69,6 +74,11 @@ func main() {
 	args.DelayICMP = flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
 
 	flag.Parse()
+
+	if *args.Version {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	// Initialization ops after parsing flags.
 	for _, fn := range postFlagsInitFn {
