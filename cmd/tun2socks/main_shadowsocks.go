@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"time"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
@@ -16,11 +15,12 @@ import (
 )
 
 func init() {
-	args.ProxyServer = flag.String("proxyServer", "1.2.3.4:1087", "Proxy server address (host:port) for socks and Shadowsocks proxies")
+	args.addFlag("proxyServer")
+	args.addFlag("udpTimeout")
+	args.addFlag("applog")
+
 	args.ProxyCipher = flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	args.ProxyPassword = flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
-	args.Applog = flag.Bool("applog", false, "Enable app logging (V2Ray, Shadowsocks and SOCKS5 handler)")
-	args.UdpTimeout = flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in SOCKS and Shadowsocks")
 
 	registerHandlerCreater("shadowsocks", func() {
 		// Verify proxy server address.

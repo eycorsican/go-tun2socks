@@ -21,10 +21,11 @@ import (
 )
 
 func init() {
+	args.addFlag("applog")
+
 	args.VConfig = flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")
 	args.SniffingType = flag.String("sniffingType", "http,tls", "Enable domain sniffing for specific kind of traffic in v2ray")
 	args.Gateway = flag.String("gateway", "", "The gateway adrress of your default network, set this to enable dynamic routing, and root/admin privileges may also required for using dynamic routing (V2Ray only)")
-	args.Applog = flag.Bool("applog", false, "Enable app logging (V2Ray, Shadowsocks and SOCKS5 handler)")
 
 	registerHandlerCreater("v2ray", func() {
 		core.SetBufferPool(vbytespool.GetPool(core.BufSize))
