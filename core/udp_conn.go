@@ -135,6 +135,8 @@ func (conn *udpConn) Write(data []byte) (int, error) {
 		return 0, err
 	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
+	// TODO re-implement udp connection, send udp data with real remote address, e.g.,
+	// with a `WriteFrom(data []byte, raddr net.Addr) (int, error)` method.
 	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &conn.remoteIP, conn.remotePort)
 	C.pbuf_free(buf)
 	return len(data), nil

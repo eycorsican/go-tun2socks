@@ -302,8 +302,8 @@ func (conn *tcpConn) Err(err error) {
 
 func (conn *tcpConn) LocalDidClose() error {
 	conn.handler.LocalDidClose(conn)
-	conn.setLocalClosed()    // flag closing
-	return conn.CheckState() // check pending data
+	conn.setLocalClosed()
+	return conn.CheckState()
 }
 
 func (conn *tcpConn) release() {

@@ -30,6 +30,8 @@ type lwipStack struct {
 	upcb *C.struct_udp_pcb
 }
 
+// NewLWIPStack listens for any incoming connections/packets and registers
+// corresponding accept/recv callback functions.
 func NewLWIPStack() LWIPStack {
 	tcpPCB := C.tcp_new()
 	if tcpPCB == nil {
@@ -106,5 +108,14 @@ func (s *lwipStack) Close() error {
 }
 
 func init() {
+	// Initialize lwIP.
+	//
+	// There is a little trick here, a loop interface (127.0.0.1)
+	// is created in the initialization stage due to the option
+	// `#define LWIP_HAVE_LOOPIF 1` in `lwipopts.h`, so we need
+	// not create our own interface.
+	//
+	// Now the loop interface is just the first element in
+	// `C.netif_list`, i.e. `*C.netif_list`.
 	lwipInit()
 }

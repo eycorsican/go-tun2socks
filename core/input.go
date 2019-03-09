@@ -26,7 +26,8 @@ func Input(pkt []byte) (int, error) {
 	lwipMutex.Lock()
 	defer lwipMutex.Unlock()
 
-	// TODO Copy the data only when lwip need to keep it.
+	// TODO Copy the data only when lwip need to keep it, e.g. in case
+	// we are returning ERR_CONN in tcpRecvFn.
 	buf := C.pbuf_alloc(C.PBUF_RAW, C.u16_t(len(pkt)), C.PBUF_POOL)
 	C.pbuf_take(buf, unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)))
 	err := C.input(buf)
