@@ -3,6 +3,7 @@ package filter
 import (
 	"io"
 	"log"
+	"net"
 
 	"github.com/eycorsican/go-tun2socks/common/lsof"
 	"github.com/eycorsican/go-tun2socks/common/packet"
@@ -28,10 +29,9 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 	if network == "tcp" && !packet.IsSYNSegment(buf) {
 		return w.writer.Write(buf)
 	}
-
-	srcAddr := packet.PeekSourceAddress(buf)
+	srcAddr := net.IP(append([]byte(nil), []byte(packet.PeekSourceAddress(buf))...))
 	srcPort := packet.PeekSourcePort(buf)
-	destAddr := packet.PeekDestinationAddress(buf)
+	destAddr := net.IP(append([]byte(nil), []byte(packet.PeekDestinationAddress(buf))...))
 	destPort := packet.PeekDestinationPort(buf)
 	go func() {
 		name, err := lsof.GetCommandNameBySocket(network, srcAddr.String(), srcPort)
