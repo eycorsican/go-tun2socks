@@ -22,40 +22,39 @@ const (
 	udpClosed
 )
 
+type udpPacket struct {
+	data []byte
+	addr net.Addr
+}
+
 type udpConn struct {
 	sync.Mutex
 
-	pcb        *C.struct_udp_pcb
-	handler    ConnectionHandler
-	localAddr  net.Addr
-	remoteAddr net.Addr
-	localIP    C.ip_addr_t
-	remoteIP   C.ip_addr_t
-	remotePort C.u16_t
-	localPort  C.u16_t
-	state      udpConnState
-	pending    chan []byte
+	pcb       *C.struct_udp_pcb
+	handler   UDPConnHandler
+	localAddr net.Addr
+	localIP   C.ip_addr_t
+	localPort C.u16_t
+	state     udpConnState
+	pending   chan *udpPacket
 }
 
-func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP, remoteIP C.ip_addr_t, localPort, remotePort C.u16_t) (Connection, error) {
+func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr_t, localPort C.u16_t, localAddr, remoteAddr net.Addr) (UDPConn, error) {
 	conn := &udpConn{
-		handler:    handler,
-		pcb:        pcb,
-		localAddr:  ParseUDPAddr(ipAddrNTOA(localIP), uint16(localPort)),
-		remoteAddr: ParseUDPAddr(ipAddrNTOA(remoteIP), uint16(remotePort)),
-		localIP:    localIP,
-		remoteIP:   remoteIP,
-		localPort:  localPort,
-		remotePort: remotePort,
-		state:      udpNewConn,
-		pending:    make(chan []byte, 1), // For DNS request payload.
+		handler:   handler,
+		pcb:       pcb,
+		localAddr: localAddr,
+		localIP:   localIP,
+		localPort: localPort,
+		state:     udpNewConn,
+		pending:   make(chan *udpPacket, 1), // For DNS request payload.
 	}
 
 	conn.Lock()
 	conn.state = udpConnecting
 	conn.Unlock()
 	go func() {
-		err := handler.Connect(conn, conn.RemoteAddr())
+		err := handler.Connect(conn, remoteAddr)
 		if err != nil {
 			conn.Close()
 		} else {
@@ -66,8 +65,8 @@ func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 		DrainPending:
 			for {
 				select {
-				case data := <-conn.pending:
-					err := conn.handler.DidReceive(conn, data)
+				case pkt := <-conn.pending:
+					err := conn.handler.DidReceiveTo(conn, pkt.data, pkt.addr)
 					if err != nil {
 						break DrainPending
 					}
@@ -80,10 +79,6 @@ func newUDPConnection(pcb *C.struct_udp_pcb, handler ConnectionHandler, localIP,
 	}()
 
 	return conn, nil
-}
-
-func (conn *udpConn) RemoteAddr() net.Addr {
-	return conn.remoteAddr
 }
 
 func (conn *udpConn) LocalAddr() net.Addr {
@@ -111,11 +106,12 @@ func (conn *udpConn) isConnecting() bool {
 	return conn.state == udpConnecting
 }
 
-func (conn *udpConn) Receive(data []byte) error {
+func (conn *udpConn) ReceiveTo(data []byte, addr net.Addr) error {
 	if conn.isConnecting() {
+		pkt := &udpPacket{data: append([]byte(nil), data...), addr: addr}
 		select {
 		// Data will be dropped if pending is full.
-		case conn.pending <- data:
+		case conn.pending <- pkt:
 			return nil
 		default:
 		}
@@ -123,56 +119,35 @@ func (conn *udpConn) Receive(data []byte) error {
 	if err := conn.checkState(); err != nil {
 		return err
 	}
-	err := conn.handler.DidReceive(conn, data)
+	err := conn.handler.DidReceiveTo(conn, data, addr)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}
 	return nil
 }
 
-func (conn *udpConn) Write(data []byte) (int, error) {
+func (conn *udpConn) WriteFrom(data []byte, addr net.Addr) (int, error) {
 	if err := conn.checkState(); err != nil {
 		return 0, err
 	}
+	// FIXME any memory leaks?
+	cremoteIP := C.struct_ip_addr{}
+	if err := ipAddrATON(addr.(*net.UDPAddr).IP.String(), &cremoteIP); err != nil {
+		return 0, err
+	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
-	// TODO re-implement udp connection, send udp data with real remote address, e.g.,
-	// with a `WriteFrom(data []byte, raddr net.Addr) (int, error)` method.
-	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &conn.remoteIP, conn.remotePort)
-	C.pbuf_free(buf)
+	defer C.pbuf_free(buf)
+	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &cremoteIP, C.u16_t(addr.(*net.UDPAddr).Port))
 	return len(data), nil
-}
-
-func (conn *udpConn) Sent(len uint16) error {
-	// unused
-	return nil
 }
 
 func (conn *udpConn) Close() error {
 	connId := udpConnId{
 		src: conn.LocalAddr().String(),
-		dst: conn.RemoteAddr().String(),
 	}
 	conn.Lock()
 	conn.state = udpClosed
 	conn.Unlock()
 	udpConns.Delete(connId)
-	return nil
-}
-
-func (conn *udpConn) Err(err error) {
-	// unused
-}
-
-func (conn *udpConn) Abort() {
-	// unused
-}
-
-func (conn *udpConn) LocalDidClose() error {
-	// unused
-	return nil
-}
-
-func (conn *udpConn) Poll() error {
-	// unused
 	return nil
 }

@@ -7,6 +7,7 @@ package core
 */
 import "C"
 import (
+	"errors"
 	"fmt"
 	"net"
 	"unsafe"
@@ -18,10 +19,14 @@ func ipAddrNTOA(ipaddr C.struct_ip_addr) string {
 	return C.GoString(C.ipaddr_ntoa(&ipaddr))
 }
 
-func ipAddrATON(cp string, addr *C.struct_ip_addr) {
+func ipAddrATON(cp string, addr *C.struct_ip_addr) error {
 	ccp := C.CString(cp)
-	C.ipaddr_aton(ccp, addr)
-	C.free(unsafe.Pointer(ccp))
+	defer C.free(unsafe.Pointer(ccp))
+	if r := C.ipaddr_aton(ccp, addr); r == 0 {
+		return errors.New("failed to convert IP address")
+	} else {
+		return nil
+	}
 }
 
 func ParseTCPAddr(addr string, port uint16) net.Addr {

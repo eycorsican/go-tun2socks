@@ -19,18 +19,18 @@ type tcpHandler struct {
 
 	proxyHost string
 	proxyPort uint16
-	conns     map[core.Connection]net.Conn
+	conns     map[core.TCPConn]net.Conn
 }
 
-func NewTCPHandler(proxyHost string, proxyPort uint16) core.ConnectionHandler {
+func NewTCPHandler(proxyHost string, proxyPort uint16) core.TCPConnHandler {
 	return &tcpHandler{
 		proxyHost: proxyHost,
 		proxyPort: proxyPort,
-		conns:     make(map[core.Connection]net.Conn, 16),
+		conns:     make(map[core.TCPConn]net.Conn, 16),
 	}
 }
 
-func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
+func (h *tcpHandler) fetchInput(conn core.TCPConn, input io.Reader) {
 	// FIXME maybe use a larger buffer?
 	buf := core.NewBytes(core.BufSize) // 2k buf
 
@@ -47,7 +47,7 @@ func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
 	}
 }
 
-func (h *tcpHandler) getConn(conn core.Connection) (net.Conn, bool) {
+func (h *tcpHandler) getConn(conn core.TCPConn) (net.Conn, bool) {
 	h.Lock()
 	defer h.Unlock()
 	if c, ok := h.conns[conn]; ok {
@@ -56,7 +56,7 @@ func (h *tcpHandler) getConn(conn core.Connection) (net.Conn, bool) {
 	return nil, false
 }
 
-func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	dialer, err := proxy.SOCKS5("tcp", core.ParseTCPAddr(h.proxyHost, h.proxyPort).String(), nil, nil)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn core.TCPConn, data []byte) error {
 	if c, found := h.getConn(conn); found {
 		_, err := c.Write(data)
 		if err != nil {
@@ -87,18 +87,18 @@ func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
 	}
 }
 
-func (h *tcpHandler) DidSend(conn core.Connection, len uint16) {
+func (h *tcpHandler) DidSend(conn core.TCPConn, len uint16) {
 }
 
-func (h *tcpHandler) DidClose(conn core.Connection) {
+func (h *tcpHandler) DidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) LocalDidClose(conn core.Connection) {
+func (h *tcpHandler) LocalDidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) Close(conn core.Connection) {
+func (h *tcpHandler) Close(conn core.TCPConn) {
 	if c, found := h.getConn(conn); found {
 		c.Close()
 		h.Lock()

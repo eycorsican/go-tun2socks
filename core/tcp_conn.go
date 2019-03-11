@@ -30,7 +30,7 @@ type tcpConn struct {
 	sync.Mutex
 
 	pcb        *C.struct_tcp_pcb
-	handler    ConnectionHandler
+	handler    TCPConnHandler
 	remoteAddr net.Addr
 	localAddr  net.Addr
 	connKeyArg unsafe.Pointer
@@ -39,7 +39,7 @@ type tcpConn struct {
 	state      tcpConnState
 }
 
-func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
+func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) {
 	connKeyArg := newConnKeyArg()
 	connKey := rand.Uint32()
 	setConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
@@ -203,7 +203,6 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 }
 
 func (conn *tcpConn) Sent(len uint16) error {
-	conn.handler.DidSend(conn, len)
 	// Some packets are acknowledged by local client, check if any pending data to send.
 	return conn.CheckState()
 }
