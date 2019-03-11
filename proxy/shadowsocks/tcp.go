@@ -20,12 +20,12 @@ type tcpHandler struct {
 
 	cipher   sscore.Cipher
 	server   string
-	conns    map[core.Connection]net.Conn
-	tgtAddrs map[core.Connection]net.Addr
-	tgtSent  map[core.Connection]bool
+	conns    map[core.TCPConn]net.Conn
+	tgtAddrs map[core.TCPConn]net.Addr
+	tgtSent  map[core.TCPConn]bool
 }
 
-func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
+func (h *tcpHandler) fetchInput(conn core.TCPConn, input io.Reader) {
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
@@ -38,7 +38,7 @@ func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
 	}
 }
 
-func (h *tcpHandler) sendTargetAddress(conn core.Connection) error {
+func (h *tcpHandler) sendTargetAddress(conn core.TCPConn) error {
 	h.Lock()
 	defer h.Unlock()
 
@@ -62,7 +62,7 @@ func (h *tcpHandler) sendTargetAddress(conn core.Connection) error {
 	return nil
 }
 
-func NewTCPHandler(server, cipher, password string) core.ConnectionHandler {
+func NewTCPHandler(server, cipher, password string) core.TCPConnHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
 		log.Fatal(err)
@@ -71,13 +71,13 @@ func NewTCPHandler(server, cipher, password string) core.ConnectionHandler {
 	return &tcpHandler{
 		cipher:   ciph,
 		server:   server,
-		conns:    make(map[core.Connection]net.Conn, 16),
-		tgtAddrs: make(map[core.Connection]net.Addr, 16),
-		tgtSent:  make(map[core.Connection]bool, 16),
+		conns:    make(map[core.TCPConn]net.Conn, 16),
+		tgtAddrs: make(map[core.TCPConn]net.Addr, 16),
+		tgtSent:  make(map[core.TCPConn]bool, 16),
 	}
 }
 
-func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	rc, err := net.Dial("tcp", h.server)
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial remote server failed: %v", err))
@@ -93,7 +93,7 @@ func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn core.TCPConn, data []byte) error {
 	h.Lock()
 	rc, ok1 := h.conns[conn]
 	h.Unlock()
@@ -116,18 +116,15 @@ func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
 	}
 }
 
-func (h *tcpHandler) DidSend(conn core.Connection, len uint16) {
-}
-
-func (h *tcpHandler) DidClose(conn core.Connection) {
+func (h *tcpHandler) DidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) LocalDidClose(conn core.Connection) {
+func (h *tcpHandler) LocalDidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) Close(conn core.Connection) {
+func (h *tcpHandler) Close(conn core.TCPConn) {
 	h.Lock()
 	defer h.Unlock()
 

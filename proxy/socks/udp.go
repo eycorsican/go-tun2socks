@@ -152,7 +152,9 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	h.remoteAddrs[conn] = resolvedRemoteAddr
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
-	// log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	if target != nil {
+		log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	}
 	return nil
 }
 
@@ -190,7 +192,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), remoteAddr))
+		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), addr))
 	}
 }
 
