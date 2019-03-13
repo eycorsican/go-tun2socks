@@ -22,6 +22,7 @@ import (
 
 func init() {
 	args.addFlag("applog")
+	args.addFlag("udpTimeout")
 
 	args.VConfig = flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")
 	args.SniffingType = flag.String("sniffingType", "http,tls", "Enable domain sniffing for specific kind of traffic in v2ray")
@@ -64,8 +65,7 @@ func init() {
 
 		ctx := vproxyman.ContextWithSniffingConfig(context.Background(), sniffingConfig)
 
-		vhandler := v2ray.NewHandler(ctx, v)
-		core.RegisterTCPConnectionHandler(vhandler)
-		core.RegisterUDPConnectionHandler(vhandler)
+		core.RegisterTCPConnHandler(v2ray.NewTCPHandler(ctx, v))
+		core.RegisterUDPConnHandler(v2ray.NewUDPHandler(ctx, v, *args.UdpTimeout))
 	})
 }

@@ -7,7 +7,7 @@ VERSION=$(shell git describe --tags)
 DEBUG_LDFLAGS=''
 RELEASE_LDFLAGS='-s -w -X main.version=$(VERSION)'
 # BUILD_TAGS=dns socks shadowsocks v2ray redirect echo
-BUILD_TAGS=socks dns shadowsocks
+BUILD_TAGS=socks dns shadowsocks v2ray
 DEBUG_BUILD_TAGS=$(BUILD_TAGS) debug
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
