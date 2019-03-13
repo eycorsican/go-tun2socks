@@ -51,6 +51,7 @@ type CmdArgs struct {
 	UdpTimeout      *time.Duration
 	Applog          *bool
 	DisableDnsCache *bool
+	DnsFallback     *bool
 }
 
 type cmdFlag uint
@@ -148,6 +149,15 @@ func main() {
 		creater()
 	} else {
 		log.Fatal("unsupported proxy type")
+	}
+
+	if *args.DnsFallback {
+		// Override the UDP handler with a DNS-over-TCP (fallback) UDP handler.
+		if creater, found := handlerCreater["dnsfallback"]; found {
+			creater()
+		} else {
+			log.Fatal("DNS fallback connection handler not found, build with `dnsfallback` tag")
+		}
 	}
 
 	// Register an output callback to write packets output from lwip stack to tun
