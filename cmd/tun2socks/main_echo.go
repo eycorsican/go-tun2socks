@@ -9,7 +9,7 @@ import (
 
 func init() {
 	registerHandlerCreater("echo", func() {
-		core.RegisterTCPConnectionHandler(echo.NewTCPHandler())
-		core.RegisterUDPConnectionHandler(echo.NewUDPHandler())
+		core.RegisterTCPConnHandler(echo.NewTCPHandler())
+		core.RegisterUDPConnHandler(echo.NewUDPHandler())
 	})
 }

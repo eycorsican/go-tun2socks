@@ -14,20 +14,18 @@ import (
 type udpHandler struct {
 	sync.Mutex
 
-	timeout        time.Duration
-	udpConns       map[core.Connection]*net.UDPConn
-	udpTargetAddrs map[core.Connection]*net.UDPAddr
+	timeout  time.Duration
+	udpConns map[core.UDPConn]*net.UDPConn
 }
 
-func NewUDPHandler(timeout time.Duration) core.ConnectionHandler {
+func NewUDPHandler(timeout time.Duration) core.UDPConnHandler {
 	return &udpHandler{
-		timeout:        timeout,
-		udpConns:       make(map[core.Connection]*net.UDPConn, 8),
-		udpTargetAddrs: make(map[core.Connection]*net.UDPAddr, 8),
+		timeout:  timeout,
+		udpConns: make(map[core.UDPConn]*net.UDPConn, 8),
 	}
 }
 
-func (h *udpHandler) fetchUDPInput(conn core.Connection, pc *net.UDPConn) {
+func (h *udpHandler) fetchUDPInput(conn core.UDPConn, pc *net.UDPConn) {
 	buf := core.NewBytes(core.BufSize)
 
 	defer func() {
@@ -37,13 +35,13 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, pc *net.UDPConn) {
 
 	for {
 		pc.SetDeadline(time.Now().Add(h.timeout))
-		n, _, err := pc.ReadFromUDP(buf)
+		n, addr, err := pc.ReadFromUDP(buf)
 		if err != nil {
 			// log.Printf("failed to read UDP data from remote: %v", err)
 			return
 		}
 
-		_, err = conn.Write(buf[:n])
+		_, err = conn.WriteFrom(buf[:n], addr)
 		if err != nil {
 			log.Printf("failed to write UDP data to TUN")
 			return
@@ -51,16 +49,14 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, pc *net.UDPConn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := net.ListenUDP("udp", bindAddr)
 	if err != nil {
 		log.Printf("failed to bind udp address")
 		return err
 	}
-	tgtAddr, _ := net.ResolveUDPAddr(target.Network(), target.String())
 	h.Lock()
-	h.udpTargetAddrs[conn] = tgtAddr
 	h.udpConns[conn] = pc
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
@@ -68,13 +64,12 @@ func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
+func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
 	h.Lock()
 	pc, ok1 := h.udpConns[conn]
-	addr, ok2 := h.udpTargetAddrs[conn]
 	h.Unlock()
 
-	if ok1 && ok2 {
+	if ok1 {
 		_, err := pc.WriteToUDP(data, addr)
 		if err != nil {
 			log.Printf("failed to write UDP payload to SOCKS5 server: %v", err)
@@ -86,27 +81,12 @@ func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
 	}
 }
 
-func (h *udpHandler) DidSend(conn core.Connection, len uint16) {
-	// unused
-}
-
-func (h *udpHandler) DidClose(conn core.Connection) {
-	// unused
-}
-
-func (h *udpHandler) LocalDidClose(conn core.Connection) {
-	// unused
-}
-
-func (h *udpHandler) Close(conn core.Connection) {
+func (h *udpHandler) Close(conn core.UDPConn) {
 	conn.Close()
 
 	h.Lock()
 	defer h.Unlock()
 
-	if _, ok := h.udpTargetAddrs[conn]; ok {
-		delete(h.udpTargetAddrs, conn)
-	}
 	if pc, ok := h.udpConns[conn]; ok {
 		pc.Close()
 		delete(h.udpConns, conn)

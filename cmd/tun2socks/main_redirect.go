@@ -12,7 +12,7 @@ func init() {
 	args.addFlag("udpTimeout")
 
 	registerHandlerCreater("redirect", func() {
-		core.RegisterTCPConnectionHandler(redirect.NewTCPHandler(*args.ProxyServer))
-		core.RegisterUDPConnectionHandler(redirect.NewUDPHandler(*args.ProxyServer, *args.UdpTimeout))
+		core.RegisterTCPConnHandler(redirect.NewTCPHandler(*args.ProxyServer))
+		core.RegisterUDPConnHandler(redirect.NewUDPHandler(*args.ProxyServer, *args.UdpTimeout))
 	})
 }
