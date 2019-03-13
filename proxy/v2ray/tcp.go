@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"sync"
-	"time"
 
 	vcore "v2ray.com/core"
 	vnet "v2ray.com/core/common/net"
@@ -67,8 +66,6 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	dest := vnet.DestinationFromAddr(target)
 	sid := vsession.NewID()
 	ctx := vsession.ContextWithID(h.ctx, sid)
-	record := &vsession.ProxyRecord{Target: dest.String(), StartTime: time.Now().UnixNano(), UploadBytes: 0, DownloadBytes: 0, RecordType: 0}
-	ctx = vsession.ContextWithProxyRecord(ctx, record)
 	c, err := vcore.Dial(ctx, h.v, dest)
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial V proxy connection failed: %v", err))
