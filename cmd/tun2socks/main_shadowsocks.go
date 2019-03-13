@@ -15,9 +15,9 @@ import (
 )
 
 func init() {
-	args.addFlag("proxyServer")
-	args.addFlag("udpTimeout")
-	args.addFlag("applog")
+	args.addFlag(fProxyServer)
+	args.addFlag(fUdpTimeout)
+	args.addFlag(fApplog)
 
 	args.ProxyCipher = flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	args.ProxyPassword = flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")

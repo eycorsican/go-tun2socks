@@ -8,8 +8,8 @@ import (
 )
 
 func init() {
-	args.addFlag("proxyServer")
-	args.addFlag("udpTimeout")
+	args.addFlag(fProxyServer)
+	args.addFlag(fUdpTimeout)
 
 	registerHandlerCreater("redirect", func() {
 		core.RegisterTCPConnHandler(redirect.NewTCPHandler(*args.ProxyServer))

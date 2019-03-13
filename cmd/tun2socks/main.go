@@ -53,26 +53,34 @@ type CmdArgs struct {
 	DisableDnsCache *bool
 }
 
-var flags = map[string]func(){
-	"proxyServer": func() {
+type cmdFlag uint
+
+const (
+	fProxyServer cmdFlag = iota
+	fUdpTimeout
+	fApplog
+)
+
+var flagCreaters = map[cmdFlag]func(){
+	fProxyServer: func() {
 		if args.ProxyServer == nil {
 			args.ProxyServer = flag.String("proxyServer", "1.2.3.4:1087", "Proxy server address (host:port) for socks and Shadowsocks proxies")
 		}
 	},
-	"udpTimeout": func() {
+	fUdpTimeout: func() {
 		if args.UdpTimeout == nil {
 			args.UdpTimeout = flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in SOCKS and Shadowsocks")
 		}
 	},
-	"applog": func() {
+	fApplog: func() {
 		if args.Applog == nil {
 			args.Applog = flag.Bool("applog", false, "Enable app logging (V2Ray, Shadowsocks and SOCKS5 handler)")
 		}
 	},
 }
 
-func (a *CmdArgs) addFlag(f string) {
-	if fn, found := flags[f]; found && fn != nil {
+func (a *CmdArgs) addFlag(f cmdFlag) {
+	if fn, found := flagCreaters[f]; found && fn != nil {
 		fn()
 	} else {
 		log.Fatal("unsupported flag")

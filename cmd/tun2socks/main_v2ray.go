@@ -21,8 +21,8 @@ import (
 )
 
 func init() {
-	args.addFlag("applog")
-	args.addFlag("udpTimeout")
+	args.addFlag(fApplog)
+	args.addFlag(fUdpTimeout)
 
 	args.VConfig = flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")
 	args.SniffingType = flag.String("sniffingType", "http,tls", "Enable domain sniffing for specific kind of traffic in v2ray")
