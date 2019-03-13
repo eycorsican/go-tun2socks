@@ -12,22 +12,22 @@ Tested and worked on macOS, Linux and Windows, iOS and Android are also supporte
                                                                           core.NewLWIPStack()
                                                    Log process names               +
                                                    Delay ICMP packets              |
+                                               Dynamically change routes           |
                                                             |                      |
-                            Dynamically change routes       |                      |
-                      +-------------------------------------+                      |              TCP/UDP               core.RegisterTCPConnectionHandler()
-                      |                                     |                      |
-                      |                                     |     core.Input()     |           core.Connection          core.RegisterUDPConnectionHandler()
-                      |                                     +                      v
-                      |          +-----------> TUN +----> Filter +-----------> lwIP stack +------------------------------> core.ConnectionHandler
-                      |          |                               <-----------+                                                        +
-                      |          |                            core.RegisterOutputFn()                                                 |
-                      v          |                                                                                                    |
+                                                            |                      |                                    core.RegisterTCPConnHandler()
+                                                            |                      |           core.TCPConn
+                                                            |     core.Input()     |           core.UDPConn             core.RegisterUDPConnHandler()
+                                                            +                      +
+                                 +-----------> TUN +----> Filter +-----------> lwIP stack +-----------------------> core.TCPConnHandler/core.UDPConnHandler
+                                 |                               <-----------+                                                        +
+                                 |                            core.RegisterOutputFn()                                                 |
+                                 |                                                                                                    |
 Application +-> Routing table +-->                                                                                                    |
                       ^          |                                                                                                    |
                       |          |                                                                                                    |
-                      |          |                                   +------> Destination                                             |
-                      |          +-----------> Original gateway +----+                                                                |
-                      |                                              +------> Proxy server +--> Destination                           |
+                      |          |                                                 +------> Destination                               |
+                      |          +-----------> Original gateway +---> Internet ----+                                                  |
+                      |                                                            +------> Proxy server +--> Destination             |
                       |                                                                                                               |
                       |                                                                                                               |
                       +---------------------------------------------------------------------------------------------------------------+
@@ -201,7 +201,7 @@ route add 1.2.3.4 192.168.0.1 metric 5
 ## TODO
 - Built-in routing rules and routing table management
 - Support ICMP packets forwarding
-- Make core.Connection an [io.ReadWriteCloser](https://golang.org/pkg/io/#ReadWriteCloser)
+- Make conn handlers [io.ReadWriteCloser](https://golang.org/pkg/io/#ReadWriteCloser)
 - Add Close() method for core.LWIPStack
 - Support TAP device in order to support IPv6 on Windows
 
@@ -214,7 +214,7 @@ building the project by executing `make copy`, or one may integrate this
 copying process into ones building process.
 ```
 
-The core part of this project is the `core` package, it focuses on `tun2socks`'s `2` part, the core package has fully IPv4/IPv6, TCP/UDP support, and only depends on lwIP (including a few [platform-dependent code](https://github.com/eycorsican/go-tun2socks/tree/master/core/src/custom)) and Go's standard library. On the one hand, IP packets input to or output from the `lwIP Stack` that initialized by `core.NewLWIPStack()`, on the other hand, TCP/UDP connections would "socksified" by the core package and can be handled by your own `core.ConnectionHandler` implementation.
+The core part of this project is the `core` package, it focuses on `tun2socks`'s `2` part, the core package has fully IPv4/IPv6, TCP/UDP support, and only depends on lwIP (including a few [platform-dependent code](https://github.com/eycorsican/go-tun2socks/tree/master/core/src/custom)) and Go's standard library. On the one hand, IP packets input to or output from the `lwIP Stack` that initialized by `core.NewLWIPStack()`, on the other hand, TCP/UDP connections would "socksified" by the core package and can be handled by your own `core.TCPConnHandler`/`core.UDPConnHandler` implementation.
 
 As for the `tun` part, different OS may has it's own interfaces.
 
@@ -232,7 +232,7 @@ For example:
   - I am not familiar with Android, but it uses Linux as kernel so should also has TUN/TAP drivers support
   - Android also provides an easy way to read/write IP packets with [VpnService.Builder](https://developer.android.com/reference/android/net/VpnService.Builder#establish())
 
-Sample code for creating a `lwIP Stack` and doing IP packets inputing/outputing, please refer `cmd/tun2socks/main.go`. Sample code for implementing `core.ConnectionHandler`, please refer `proxy/*`.
+Sample code for creating a `lwIP Stack` and doing IP packets inputing/outputing, please refer `cmd/tun2socks/main.go`. Sample code for implementing `core.TCPConnHandler`/`core.UDPConnHandler`, please refer `proxy/*`.
 
 ## Creating a Framework for iOS
 
