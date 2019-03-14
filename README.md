@@ -75,13 +75,13 @@ ls ./build
 
 ### Customizing Build
 
-The default build behavior is to include all available modules, ends up a fat binary that will contain modules you may not need. It's easy to customize the build to include only modules you want by modifying the `Makefile`, for example, you may build `go-tun2socks` with only the `socks` proxy handler by changing [this line](https://github.com/eycorsican/go-tun2socks/blob/45ac13fd65286a964689cbfcba959405961cea45/Makefile#L8):
+The default build behavior is to include all available modules, ends up a fat binary that will contain modules you may not need. It's easy to customize the build to include only modules you want by modifying the `Makefile`, for example, you may build `go-tun2socks` with only the `socks` proxy handler by setting the `BUILD_TAGS` variable before calling `make`:
 ```
 # socks handler only
-BUILD_TAGS=socks
+BUILD_TAGS=socks make
 
 # socks handler with DNS cache
-BUILD_TAGS=socks dns
+BUILD_TAGS=socks dns make
 ```
 
 ## Run
