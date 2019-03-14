@@ -1,9 +1,9 @@
 package echo
 
 import (
-	"log"
 	"net"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -24,7 +24,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	go func(b []byte) {
 		_, err := conn.WriteFrom(b, addr)
 		if err != nil {
-			log.Printf("failed to echo back data: %v", err)
+			log.Warnf("failed to echo back data: %v", err)
 		}
 	}(payload)
 	return nil

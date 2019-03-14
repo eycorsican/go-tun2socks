@@ -3,7 +3,6 @@ package shadowsocks
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
 	"github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -29,12 +29,12 @@ type udpHandler struct {
 func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCache dns.DnsCache) core.UDPConnHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to pick a cipher: %v", err)
 	}
 
 	remoteAddr, err := net.ResolveUDPAddr("udp", server)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to resolve udp address: %v", err)
 	}
 
 	return &udpHandler{
@@ -69,14 +69,14 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 		}
 		_, err = conn.WriteFrom(buf[int(len(addr)):n], resolvedAddr)
 		if err != nil {
-			log.Printf("write local failed: %v", err)
+			log.Warnf("write local failed: %v", err)
 			return
 		}
 
 		if h.dnsCache != nil {
 			_, port, err := net.SplitHostPort(addr.String())
 			if err != nil {
-				log.Fatal("impossible error")
+				panic("impossible error")
 			}
 			if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
 				h.dnsCache.Store(buf[int(len(addr)):n])
@@ -98,7 +98,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
 	if target != nil {
-		log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+		log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	}
 	return nil
 }
@@ -111,7 +111,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	if h.dnsCache != nil {
 		_, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
-			log.Fatal("impossible error")
+			panic("impossible error")
 		}
 		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
 			if answer := h.dnsCache.Query(data); answer != nil {

@@ -3,9 +3,9 @@
 package main
 
 import (
-	"log"
 	"net"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/proxy/socks"
 )

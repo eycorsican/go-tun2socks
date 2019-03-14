@@ -3,11 +3,11 @@ package direct
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -43,7 +43,7 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, pc *net.UDPConn) {
 
 		_, err = conn.WriteFrom(buf[:n], addr)
 		if err != nil {
-			log.Printf("failed to write UDP data to TUN")
+			log.Warnf("failed to write UDP data to TUN")
 			return
 		}
 	}
@@ -53,14 +53,14 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := net.ListenUDP("udp", bindAddr)
 	if err != nil {
-		log.Printf("failed to bind udp address")
+		log.Errorf("failed to bind udp address")
 		return err
 	}
 	h.Lock()
 	h.udpConns[conn] = pc
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 
@@ -72,7 +72,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	if ok1 {
 		_, err := pc.WriteToUDP(data, addr)
 		if err != nil {
-			log.Printf("failed to write UDP payload to SOCKS5 server: %v", err)
+			log.Warnf("failed to write UDP payload to SOCKS5 server: %v", err)
 			return errors.New("failed to write UDP data")
 		}
 		return nil

@@ -4,12 +4,12 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net"
 	"strings"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/proxy/shadowsocks"
 )
@@ -32,7 +32,7 @@ func init() {
 		proxyPort := uint16(proxyAddr.Port)
 
 		if *args.ProxyCipher == "" || *args.ProxyPassword == "" {
-			log.Fatal("invalid cipher or password")
+			log.Fatalf("invalid cipher or password")
 		}
 		core.RegisterTCPConnHandler(shadowsocks.NewTCPHandler(core.ParseTCPAddr(proxyHost, proxyPort).String(), *args.ProxyCipher, *args.ProxyPassword))
 		core.RegisterUDPConnHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *args.ProxyCipher, *args.ProxyPassword, *args.UdpTimeout, dnsCache))

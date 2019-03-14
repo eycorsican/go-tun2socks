@@ -7,7 +7,6 @@ import (
 	"flag"
 	"io"
 	"io/ioutil"
-	"log"
 	"strings"
 
 	vcore "v2ray.com/core"
@@ -15,6 +14,7 @@ import (
 	vbytespool "v2ray.com/core/common/bytespool"
 	vrouting "v2ray.com/core/features/routing"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/filter"
 	"github.com/eycorsican/go-tun2socks/proxy/v2ray"
@@ -33,7 +33,7 @@ func init() {
 
 		configBytes, err := ioutil.ReadFile(*args.VConfig)
 		if err != nil {
-			log.Fatal("invalid vconfig file")
+			log.Fatalf("invalid vconfig file")
 		}
 		var validSniffings []string
 		sniffings := strings.Split(*args.SniffingType, ",")
@@ -50,7 +50,7 @@ func init() {
 
 		// Wrap a writer for adding routes according to V2Ray's routing results if dynamic routing is enabled.
 		if *args.Gateway != "" {
-			log.Printf("Dynamic routing is enabled")
+			log.Infof("Dynamic routing is enabled")
 			router := v.GetFeature(vrouting.RouterType()).(vrouting.Router)
 			lwipWriter = filter.NewRoutingFilter(lwipWriter, router, *args.Gateway).(io.Writer)
 		}

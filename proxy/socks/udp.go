@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -46,7 +46,7 @@ func (h *udpHandler) handleTCP(conn core.UDPConn, c net.Conn) {
 		c.SetDeadline(time.Time{})
 		_, err := c.Read(buf)
 		if err == io.EOF {
-			log.Printf("UDP associate to %v closed by remote", c.RemoteAddr())
+			log.Warnf("UDP associate to %v closed by remote", c.RemoteAddr())
 			h.Close(conn)
 			return
 		} else if err != nil {
@@ -79,14 +79,14 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 		}
 		_, err = conn.WriteFrom(buf[int(3+len(addr)):n], resolvedAddr)
 		if err != nil {
-			log.Printf("write local failed: %v", err)
+			log.Warnf("write local failed: %v", err)
 			return
 		}
 
 		if h.dnsCache != nil {
 			_, port, err := net.SplitHostPort(addr.String())
 			if err != nil {
-				log.Fatal("impossible error")
+				panic("impossible error")
 			}
 			if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
 				h.dnsCache.Store(buf[int(3+len(addr)):n])
@@ -153,7 +153,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
 	if target != nil {
-		log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+		log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	if ok2 && h.dnsCache != nil {
 		_, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
-			log.Fatal("impossible error")
+			panic("impossible error")
 		}
 		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
 			if answer := h.dnsCache.Query(data); answer != nil {

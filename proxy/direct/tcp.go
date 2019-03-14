@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -41,7 +41,7 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	h.Unlock()
 	c.SetReadDeadline(time.Time{})
 	go h.fetchInput(conn, c)
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 

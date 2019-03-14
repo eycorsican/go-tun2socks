@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/log"
+	_ "github.com/eycorsican/go-tun2socks/common/log/simple" // Register a simple logger.
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/filter"
 	"github.com/eycorsican/go-tun2socks/tun"
@@ -52,6 +53,7 @@ type CmdArgs struct {
 	Applog          *bool
 	DisableDnsCache *bool
 	DnsFallback     *bool
+	LogLevel        *string
 }
 
 type cmdFlag uint
@@ -84,7 +86,7 @@ func (a *CmdArgs) addFlag(f cmdFlag) {
 	if fn, found := flagCreaters[f]; found && fn != nil {
 		fn()
 	} else {
-		log.Fatal("unsupported flag")
+		log.Fatalf("unsupported flag")
 	}
 }
 
@@ -107,6 +109,7 @@ func main() {
 	args.TunDns = flag.String("tunDns", "114.114.114.114,223.5.5.5", "DNS resolvers for TUN interface (only need on Windows)")
 	args.ProxyType = flag.String("proxyType", "socks", "Proxy handler type, e.g. socks, shadowsocks, v2ray")
 	args.DelayICMP = flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
+	args.LogLevel = flag.String("loglevel", "info", "Logging level. (debug, info, warn, error, none)")
 
 	flag.Parse()
 
@@ -122,6 +125,22 @@ func main() {
 		}
 	}
 
+	// Set log level.
+	switch strings.ToLower(*args.LogLevel) {
+	case "debug":
+		log.SetLevel(log.DEBUG)
+	case "info":
+		log.SetLevel(log.INFO)
+	case "warn":
+		log.SetLevel(log.WARN)
+	case "error":
+		log.SetLevel(log.ERROR)
+	case "none":
+		log.SetLevel(log.NONE)
+	default:
+		panic("unsupport logging level")
+	}
+
 	// Open the tun device.
 	dnsServers := strings.Split(*args.TunDns, ",")
 	tunDev, err := tun.OpenTunDevice(*args.TunName, *args.TunAddr, *args.TunGw, *args.TunMask, dnsServers)
@@ -134,13 +153,13 @@ func main() {
 
 	// Wrap a writer to delay ICMP packets if delay time is not zero.
 	if *args.DelayICMP > 0 {
-		log.Printf("ICMP packets will be delayed for %dms", *args.DelayICMP)
+		log.Infof("ICMP packets will be delayed for %dms", *args.DelayICMP)
 		lwipWriter = filter.NewICMPFilter(lwipWriter, *args.DelayICMP).(io.Writer)
 	}
 
 	// Wrap a writer to print out processes the creating network connections.
 	if *args.Applog {
-		log.Printf("App logging is enabled")
+		log.Infof("App logging is enabled")
 		lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 	}
 
@@ -148,7 +167,7 @@ func main() {
 	if creater, found := handlerCreater[*args.ProxyType]; found {
 		creater()
 	} else {
-		log.Fatal("unsupported proxy type")
+		log.Fatalf("unsupported proxy type")
 	}
 
 	if *args.DnsFallback {
@@ -156,7 +175,7 @@ func main() {
 		if creater, found := handlerCreater["dnsfallback"]; found {
 			creater()
 		} else {
-			log.Fatal("DNS fallback connection handler not found, build with `dnsfallback` tag")
+			log.Fatalf("DNS fallback connection handler not found, build with `dnsfallback` tag")
 		}
 	}
 
@@ -174,7 +193,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("Running tun2socks")
+	log.Infof("Running tun2socks")
 
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)

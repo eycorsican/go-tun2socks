@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	vsignal "v2ray.com/core/common/signal"
 	vtask "v2ray.com/core/common/task"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -104,7 +104,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 			pc.Close()
 		}
 	}()
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 

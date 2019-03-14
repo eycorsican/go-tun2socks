@@ -3,13 +3,13 @@
 package cache
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
 
 	cdns "github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/log"
 )
 
 type dnsCacheEntry struct {
@@ -42,7 +42,7 @@ func (c *simpleDnsCache) cleanUp() {
 		select {
 		case <-ticker.C:
 			c.mutex.Lock()
-			log.Printf("cleaning up dns cache, %v entries", len(c.storage))
+			log.Debugf("cleaning up dns cache, %v entries", len(c.storage))
 			newStorage := make(map[string]*dnsCacheEntry)
 			for key, entry := range c.storage {
 				if time.Now().Before(entry.exp) {
@@ -50,7 +50,7 @@ func (c *simpleDnsCache) cleanUp() {
 				}
 			}
 			c.storage = newStorage
-			log.Printf("cleanup done, remaining %v entries", len(c.storage))
+			log.Debugf("cleanup done, remaining %v entries", len(c.storage))
 			c.mutex.Unlock()
 		}
 	}
@@ -108,5 +108,5 @@ func (c *simpleDnsCache) Store(payload []byte) {
 		msg: payload,
 		exp: time.Now().Add(time.Duration(resp.Answer[0].Header().Ttl) * time.Second),
 	}
-	log.Printf("stored dns answer with key: %v, ttl: %v sec", key, resp.Answer[0].Header().Ttl)
+	log.Debugf("stored dns answer with key: %v, ttl: %v sec", key, resp.Answer[0].Header().Ttl)
 }

@@ -5,12 +5,12 @@ package filter
 import (
 	"context"
 	"io"
-	"log"
 
 	vnet "v2ray.com/core/common/net"
 	vsession "v2ray.com/core/common/session"
 	vrouting "v2ray.com/core/features/routing"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/common/packet"
 	"github.com/eycorsican/go-tun2socks/common/route"
 )
@@ -77,7 +77,7 @@ func (w *routingFilter) Write(buf []byte) (int, error) {
 			// log.Printf("added a direct route for destination %v, packets need re-routing, dropped", dest)
 			return len(buf), nil
 		} else {
-			log.Printf("adding route for %v failed: %v", dest, err)
+			log.Warnf("adding route for %v failed: %v", dest, err)
 		}
 	}
 

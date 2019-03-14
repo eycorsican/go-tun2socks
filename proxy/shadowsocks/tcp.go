@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -65,7 +65,7 @@ func (h *tcpHandler) sendTargetAddress(conn core.TCPConn) error {
 func NewTCPHandler(server, cipher, password string) core.TCPConnHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to pick a cipher: %v", err)
 	}
 
 	return &tcpHandler{
@@ -89,7 +89,7 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	h.tgtAddrs[conn] = target
 	h.Unlock()
 	rc.SetDeadline(time.Time{})
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 

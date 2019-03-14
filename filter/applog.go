@@ -2,9 +2,9 @@ package filter
 
 import (
 	"io"
-	"log"
 	"net"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/common/lsof"
 	"github.com/eycorsican/go-tun2socks/common/packet"
 )
@@ -38,7 +38,7 @@ func (w *applogFilter) Write(buf []byte) (int, error) {
 		if err != nil {
 			name = "unknown process"
 		}
-		log.Printf("[%v] is connecting %v:%v:%v", name, network, destAddr.String(), destPort)
+		log.Infof("[%v] is connecting %v:%v:%v", name, network, destAddr.String(), destPort)
 	}()
 	return w.writer.Write(buf)
 }
