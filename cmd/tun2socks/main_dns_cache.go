@@ -1,4 +1,4 @@
-// +build dns
+// +build dnscache
 
 package main
 

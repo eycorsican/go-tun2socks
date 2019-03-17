@@ -81,7 +81,7 @@ The default build behavior is to include all available modules, ends up a fat bi
 BUILD_TAGS=socks make
 
 # socks handler with DNS cache
-BUILD_TAGS=socks dns make
+BUILD_TAGS="socks dnscache" make
 ```
 
 ## Run

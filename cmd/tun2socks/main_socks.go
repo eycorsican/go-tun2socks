@@ -24,7 +24,7 @@ func init() {
 		proxyHost := proxyAddr.IP.String()
 		proxyPort := uint16(proxyAddr.Port)
 
-		core.RegisterTCPConnHandler(socks.NewTCPHandler(proxyHost, proxyPort))
-		core.RegisterUDPConnHandler(socks.NewUDPHandler(proxyHost, proxyPort, *args.UdpTimeout, dnsCache))
+		core.RegisterTCPConnHandler(socks.NewTCPHandler(proxyHost, proxyPort, fakeDns))
+		core.RegisterUDPConnHandler(socks.NewUDPHandler(proxyHost, proxyPort, *args.UdpTimeout, dnsCache, fakeDns))
 	})
 }

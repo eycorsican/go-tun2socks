@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/net/proxy"
 
+	"github.com/eycorsican/go-tun2socks/common/dns"
 	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
@@ -20,13 +21,16 @@ type tcpHandler struct {
 	proxyHost string
 	proxyPort uint16
 	conns     map[core.TCPConn]net.Conn
+
+	fakeDns dns.FakeDns
 }
 
-func NewTCPHandler(proxyHost string, proxyPort uint16) core.TCPConnHandler {
+func NewTCPHandler(proxyHost string, proxyPort uint16, fakeDns dns.FakeDns) core.TCPConnHandler {
 	return &tcpHandler{
 		proxyHost: proxyHost,
 		proxyPort: proxyPort,
 		conns:     make(map[core.TCPConn]net.Conn, 16),
+		fakeDns:   fakeDns,
 	}
 }
 
@@ -61,7 +65,19 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	if err != nil {
 		return err
 	}
-	c, err := dialer.Dial(target.Network(), target.String())
+	host, port, err := net.SplitHostPort(target.String())
+	if err != nil {
+		log.Errorf("error when split host port %v", err)
+	}
+	var targetHost string = host
+	if h.fakeDns != nil {
+		if ip := net.ParseIP(host); ip != nil {
+			if dns.IsFakeIP(ip) {
+				targetHost = h.fakeDns.QueryDomain(ip)
+			}
+		}
+	}
+	c, err := dialer.Dial(target.Network(), fmt.Sprintf("%s:%s", targetHost, port))
 	if err != nil {
 		return err
 	}
@@ -70,7 +86,7 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	h.Unlock()
 	c.SetDeadline(time.Time{})
 	go h.fetchInput(conn, c)
-	log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), fmt.Sprintf("%s:%s", targetHost, port))
 	return nil
 }
 

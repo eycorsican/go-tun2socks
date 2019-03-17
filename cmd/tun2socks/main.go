@@ -54,6 +54,7 @@ type CmdArgs struct {
 	DisableDnsCache *bool
 	DnsFallback     *bool
 	LogLevel        *string
+	EnableFakeDns   *bool
 }
 
 type cmdFlag uint
@@ -95,6 +96,8 @@ var args = new(CmdArgs)
 var lwipWriter io.Writer
 
 var dnsCache dns.DnsCache
+
+var fakeDns dns.FakeDns
 
 const (
 	MTU = 1500

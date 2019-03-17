@@ -23,10 +23,11 @@ type udpHandler struct {
 	tcpConns    map[core.UDPConn]net.Conn
 	remoteAddrs map[core.UDPConn]*net.UDPAddr // UDP relay server addresses
 	dnsCache    dns.DnsCache
+	fakeDns     dns.FakeDns
 	timeout     time.Duration
 }
 
-func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration, dnsCache dns.DnsCache) core.UDPConnHandler {
+func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration, dnsCache dns.DnsCache, fakeDns dns.FakeDns) core.UDPConnHandler {
 	return &udpHandler{
 		proxyHost:   proxyHost,
 		proxyPort:   proxyPort,
@@ -34,6 +35,7 @@ func NewUDPHandler(proxyHost string, proxyPort uint16, timeout time.Duration, dn
 		tcpConns:    make(map[core.UDPConn]net.Conn, 8),
 		remoteAddrs: make(map[core.UDPConn]*net.UDPAddr, 8),
 		dnsCache:    dnsCache,
+		fakeDns:     fakeDns,
 		timeout:     timeout,
 	}
 }
@@ -97,6 +99,33 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 }
 
 func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
+	if target == nil {
+		return h.connectInternal(conn, "")
+	}
+
+	host, port, err := net.SplitHostPort(target.String())
+	if err != nil {
+		log.Errorf("error when split host port %v", err)
+	}
+	var targetHost string = host
+	if h.fakeDns != nil {
+		_, port, err := net.SplitHostPort(target.String())
+		if err != nil {
+			panic("impossible error")
+		}
+		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			return nil // skip dns
+		}
+		if ip := net.ParseIP(host); ip != nil {
+			if dns.IsFakeIP(ip) {
+				targetHost = h.fakeDns.QueryDomain(ip)
+			}
+		}
+	}
+	return h.connectInternal(conn, fmt.Sprintf("%s:%s", targetHost, port))
+}
+
+func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 	c, err := net.Dial("tcp", core.ParseTCPAddr(h.proxyHost, h.proxyPort).String())
 	if err != nil {
 		return err
@@ -111,8 +140,8 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 		return err
 	}
 
-	if target != nil {
-		targetAddr := ParseAddr(target.String())
+	if len(dest) != 0 {
+		targetAddr := ParseAddr(dest)
 		// write VER CMD RSV ATYP DST.ADDR DST.PORT
 		c.Write(append([]byte{5, socks5UDPAssociate, 0}, targetAddr...))
 	} else {
@@ -152,8 +181,8 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	h.remoteAddrs[conn] = resolvedRemoteAddr
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
-	if target != nil {
-		log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
+	if len(dest) != 0 {
+		log.Infof("new proxy connection for target: udp:%s", dest)
 	}
 	return nil
 }
@@ -164,7 +193,34 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	remoteAddr, ok2 := h.remoteAddrs[conn]
 	h.Unlock()
 
-	if ok2 && h.dnsCache != nil {
+	if h.fakeDns != nil {
+		_, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			panic("impossible error")
+		}
+		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			resp, err := h.fakeDns.GenerateFakeResponse(data)
+			if err != nil {
+				// FIXME This will block the lwip thread, need to optimize.
+				if err := h.connectInternal(conn, addr.String()); err != nil {
+					return fmt.Errorf("failed to connect to %v:%v", addr.Network(), addr.String())
+				}
+				h.Lock()
+				pc, ok1 = h.udpConns[conn]
+				remoteAddr, ok2 = h.remoteAddrs[conn]
+				h.Unlock()
+			} else {
+				_, err = conn.WriteFrom(resp, addr)
+				if err != nil {
+					return errors.New(fmt.Sprintf("write dns answer failed: %v", err))
+				}
+				h.Close(conn)
+				return nil
+			}
+		}
+	}
+
+	if h.dnsCache != nil {
 		_, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
 			panic("impossible error")
