@@ -158,7 +158,7 @@ func main() {
 	}
 
 	// Wrap a writer to print out processes the creating network connections.
-	if *args.Applog {
+	if args.Applog != nil && *args.Applog {
 		log.Infof("App logging is enabled")
 		lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 	}
@@ -170,7 +170,7 @@ func main() {
 		log.Fatalf("unsupported proxy type")
 	}
 
-	if *args.DnsFallback {
+	if args.DnsFallback != nil && *args.DnsFallback {
 		// Override the UDP handler with a DNS-over-TCP (fallback) UDP handler.
 		if creater, found := handlerCreater["dnsfallback"]; found {
 			creater()
