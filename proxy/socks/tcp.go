@@ -65,6 +65,8 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	if err != nil {
 		return err
 	}
+
+	// Replace with a domain name if target address IP is a fake IP.
 	host, port, err := net.SplitHostPort(target.String())
 	if err != nil {
 		log.Errorf("error when split host port %v", err)
@@ -77,7 +79,9 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 			}
 		}
 	}
-	c, err := dialer.Dial(target.Network(), fmt.Sprintf("%s:%s", targetHost, port))
+	dest := fmt.Sprintf("%s:%s", targetHost, port)
+
+	c, err := dialer.Dial(target.Network(), dest)
 	if err != nil {
 		return err
 	}

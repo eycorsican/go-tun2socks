@@ -103,6 +103,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 		return h.connectInternal(conn, "")
 	}
 
+	// Replace with a domain name if target address IP is a fake IP.
 	host, port, err := net.SplitHostPort(target.String())
 	if err != nil {
 		log.Errorf("error when split host port %v", err)
@@ -122,7 +123,9 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 			}
 		}
 	}
-	return h.connectInternal(conn, fmt.Sprintf("%s:%s", targetHost, port))
+	dest := fmt.Sprintf("%s:%s", targetHost, port)
+
+	return h.connectInternal(conn, dest)
 }
 
 func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
@@ -238,6 +241,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	}
 
 	if ok1 && ok2 {
+		// Replace with a domain name if target address IP is a fake IP.
 		host, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
 			log.Errorf("error when split host port %v", err)

@@ -146,6 +146,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	}
 
 	if ok1 {
+		// Replace with a domain name if target address IP is a fake IP.
 		host, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
 			log.Errorf("error when split host port %v", err)

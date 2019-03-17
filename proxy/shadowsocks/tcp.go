@@ -57,12 +57,14 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 		log.Fatalf("unexpected nil target")
 	}
 
+	// Connect the relay server.
 	rc, err := net.Dial("tcp", h.server)
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial remote server failed: %v", err))
 	}
 	rc = h.cipher.StreamConn(rc)
 
+	// Replace with a domain name if target address IP is a fake IP.
 	host, port, err := net.SplitHostPort(target.String())
 	if err != nil {
 		log.Errorf("error when split host port %v", err)
@@ -77,15 +79,19 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	}
 	dest := fmt.Sprintf("%s:%s", targetHost, port)
 
+	// Write target address.
 	tgt := sssocks.ParseAddr(dest)
 	_, err = rc.Write(tgt)
 	if err != nil {
 		return fmt.Errorf("send target address failed: %v", err)
 	}
+
 	h.Lock()
 	h.conns[conn] = rc
 	h.Unlock()
+
 	go h.fetchInput(conn, rc)
+
 	log.Infof("new proxy connection for target: %s:%s", target.Network(), dest)
 	return nil
 }
