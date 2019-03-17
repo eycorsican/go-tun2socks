@@ -1,4 +1,5 @@
 package v2ray
+
 import (
 	"fmt"
 	"os"
@@ -33,23 +34,23 @@ func (l *v2rayLogger) SetLevel(level log.LogLevel) {
 }
 
 func (l *v2rayLogger) Debugf(msg string, args ...interface{}) {
-	l.output(vlog.Severity_Debug, msg, args)
+	l.output(vlog.Severity_Debug, msg, args...)
 }
 
 func (l *v2rayLogger) Infof(msg string, args ...interface{}) {
-	l.output(vlog.Severity_Info, msg, args)
+	l.output(vlog.Severity_Info, msg, args...)
 }
 
 func (l *v2rayLogger) Warnf(msg string, args ...interface{}) {
-	l.output(vlog.Severity_Warning, msg, args)
+	l.output(vlog.Severity_Warning, msg, args...)
 }
 
 func (l *v2rayLogger) Errorf(msg string, args ...interface{}) {
-	l.output(vlog.Severity_Error, msg, args)
+	l.output(vlog.Severity_Error, msg, args...)
 }
 
 func (l *v2rayLogger) Fatalf(msg string, args ...interface{}) {
-	l.output(vlog.Severity_Unknown, msg, args)
+	l.output(vlog.Severity_Unknown, msg, args...)
 	os.Exit(1)
 }
 
