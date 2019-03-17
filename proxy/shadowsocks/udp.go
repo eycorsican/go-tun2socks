@@ -3,7 +3,6 @@ package shadowsocks
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"sync"
@@ -12,43 +11,44 @@ import (
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
+	"github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
-	"github.com/eycorsican/go-tun2socks/proxy"
 )
 
 type udpHandler struct {
 	sync.Mutex
 
-	cipher      sscore.Cipher
-	remoteAddr  net.Addr
-	conns       map[core.Connection]net.PacketConn
-	targetAddrs map[core.Connection]sssocks.Addr
-	dnsCache    *proxy.DNSCache
-	timeout     time.Duration
+	cipher     sscore.Cipher
+	remoteAddr net.Addr
+	conns      map[core.UDPConn]net.PacketConn
+	dnsCache   dns.DnsCache
+	fakeDns    dns.FakeDns
+	timeout    time.Duration
 }
 
-func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCache *proxy.DNSCache) core.ConnectionHandler {
+func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCache dns.DnsCache, fakeDns dns.FakeDns) core.UDPConnHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to pick a cipher: %v", err)
 	}
 
 	remoteAddr, err := net.ResolveUDPAddr("udp", server)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to resolve udp address: %v", err)
 	}
 
 	return &udpHandler{
-		cipher:      ciph,
-		remoteAddr:  remoteAddr,
-		conns:       make(map[core.Connection]net.PacketConn, 16),
-		targetAddrs: make(map[core.Connection]sssocks.Addr, 16),
-		dnsCache:    dnsCache,
-		timeout:     timeout,
+		cipher:     ciph,
+		remoteAddr: remoteAddr,
+		conns:      make(map[core.UDPConn]net.PacketConn, 16),
+		dnsCache:   dnsCache,
+		fakeDns:    fakeDns,
+		timeout:    timeout,
 	}
 }
 
-func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.PacketConn) {
+func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 	buf := core.NewBytes(core.BufSize)
 
 	defer func() {
@@ -65,31 +65,30 @@ func (h *udpHandler) fetchUDPInput(conn core.Connection, input net.PacketConn) {
 		}
 
 		addr := sssocks.SplitAddr(buf[:])
-		_, err = conn.Write(buf[int(len(addr)):n])
+		resolvedAddr, err := net.ResolveUDPAddr("udp", addr.String())
 		if err != nil {
-			log.Printf("write local failed: %v", err)
+			return
+		}
+		_, err = conn.WriteFrom(buf[int(len(addr)):n], resolvedAddr)
+		if err != nil {
+			log.Warnf("write local failed: %v", err)
 			return
 		}
 
 		if h.dnsCache != nil {
-			h.Lock()
-			targetAddr, ok2 := h.targetAddrs[conn]
-			h.Unlock()
-			if ok2 {
-				_, port, err := net.SplitHostPort(targetAddr.String())
-				if err != nil {
-					log.Fatal("impossible error")
-				}
-				if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
-					h.dnsCache.Store(buf[int(len(addr)):n])
-					return // DNS response
-				}
+			_, port, err := net.SplitHostPort(addr.String())
+			if err != nil {
+				panic("impossible error")
+			}
+			if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+				h.dnsCache.Store(buf[int(len(addr)):n])
+				return // DNS response
 			}
 		}
 	}
 }
 
-func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	pc, err := net.ListenPacket("udp", "")
 	if err != nil {
 		return err
@@ -98,43 +97,73 @@ func (h *udpHandler) Connect(conn core.Connection, target net.Addr) error {
 
 	h.Lock()
 	h.conns[conn] = pc
-	h.targetAddrs[conn] = sssocks.ParseAddr(target.String())
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	if target != nil {
+		log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
+	}
 	return nil
 }
 
-func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
+func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
 	h.Lock()
 	pc, ok1 := h.conns[conn]
-	targetAddr, ok2 := h.targetAddrs[conn]
 	h.Unlock()
 
-	if ok2 && h.dnsCache != nil {
-		_, port, err := net.SplitHostPort(targetAddr.String())
+	if h.fakeDns != nil {
+		_, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
-			log.Fatal("impossible error")
+			panic("impossible error")
 		}
-		if port == strconv.Itoa(proxy.COMMON_DNS_PORT) {
-			if answer := h.dnsCache.Query(data); answer != nil {
-				var buf [1024]byte
-				if dnsAnswer, err := answer.PackBuffer(buf[:]); err == nil {
-					_, err = conn.Write(dnsAnswer)
-					if err != nil {
-						return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
-					}
-					h.Close(conn)
-					return nil
+		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			resp, err := h.fakeDns.GenerateFakeResponse(data)
+			if err == nil {
+				_, err = conn.WriteFrom(resp, addr)
+				if err != nil {
+					return errors.New(fmt.Sprintf("write dns answer failed: %v", err))
 				}
+				h.Close(conn)
+				return nil
 			}
 		}
 	}
 
-	if ok1 && ok2 {
-		buf := append([]byte{0, 0, 0}, targetAddr...)
+	if h.dnsCache != nil {
+		_, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			panic("impossible error")
+		}
+		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			if answer := h.dnsCache.Query(data); answer != nil {
+				_, err = conn.WriteFrom(answer, addr)
+				if err != nil {
+					return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
+				}
+				h.Close(conn)
+				return nil
+			}
+		}
+	}
+
+	if ok1 {
+		// Replace with a domain name if target address IP is a fake IP.
+		host, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			log.Errorf("error when split host port %v", err)
+		}
+		var targetHost string = host
+		if h.fakeDns != nil {
+			if ip := net.ParseIP(host); ip != nil {
+				if dns.IsFakeIP(ip) {
+					targetHost = h.fakeDns.QueryDomain(ip)
+				}
+			}
+		}
+		dest := fmt.Sprintf("%s:%s", targetHost, port)
+
+		buf := append([]byte{0, 0, 0}, sssocks.ParseAddr(dest)...)
 		buf = append(buf, data[:]...)
-		_, err := pc.WriteTo(buf[3:], h.remoteAddr)
+		_, err = pc.WriteTo(buf[3:], h.remoteAddr)
 		if err != nil {
 			h.Close(conn)
 			return errors.New(fmt.Sprintf("write remote failed: %v", err))
@@ -142,23 +171,11 @@ func (h *udpHandler) DidReceive(conn core.Connection, data []byte) error {
 		return nil
 	} else {
 		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), conn.RemoteAddr()))
+		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), addr))
 	}
 }
 
-func (h *udpHandler) DidSend(conn core.Connection, len uint16) {
-	// unused
-}
-
-func (h *udpHandler) DidClose(conn core.Connection) {
-	// unused
-}
-
-func (h *udpHandler) LocalDidClose(conn core.Connection) {
-	// unused
-}
-
-func (h *udpHandler) Close(conn core.Connection) {
+func (h *udpHandler) Close(conn core.UDPConn) {
 	conn.Close()
 
 	h.Lock()
@@ -168,5 +185,4 @@ func (h *udpHandler) Close(conn core.Connection) {
 		pc.Close()
 		delete(h.conns, conn)
 	}
-	delete(h.targetAddrs, conn)
 }

@@ -4,28 +4,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
-	"time"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
 
+	"github.com/eycorsican/go-tun2socks/common/dns"
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
 type tcpHandler struct {
 	sync.Mutex
 
-	cipher   sscore.Cipher
-	server   string
-	conns    map[core.Connection]net.Conn
-	tgtAddrs map[core.Connection]net.Addr
-	tgtSent  map[core.Connection]bool
+	cipher sscore.Cipher
+	server string
+	conns  map[core.TCPConn]net.Conn
+
+	fakeDns dns.FakeDns
 }
 
-func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
+func (h *tcpHandler) fetchInput(conn core.TCPConn, input io.Reader) {
 	defer func() {
 		h.Close(conn)
 		conn.Close() // also close tun2socks connection here
@@ -38,73 +38,71 @@ func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
 	}
 }
 
-func (h *tcpHandler) sendTargetAddress(conn core.Connection) error {
-	h.Lock()
-	defer h.Unlock()
-
-	tgtAddr, ok1 := h.tgtAddrs[conn]
-	rc, ok2 := h.conns[conn]
-	sent, ok3 := h.tgtSent[conn]
-	if ok3 && sent {
-		return nil
-	}
-	if ok1 && ok2 {
-		tgt := sssocks.ParseAddr(tgtAddr.String())
-		_, err := rc.Write(tgt)
-		if err != nil {
-			return errors.New(fmt.Sprintf("send target address failed: %v", err))
-		}
-		h.tgtSent[conn] = true
-		go h.fetchInput(conn, rc)
-	} else {
-		return errors.New("target address not found")
-	}
-	return nil
-}
-
-func NewTCPHandler(server, cipher, password string) core.ConnectionHandler {
+func NewTCPHandler(server, cipher, password string, fakeDns dns.FakeDns) core.TCPConnHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to pick a cipher: %v", err)
 	}
 
 	return &tcpHandler{
-		cipher:   ciph,
-		server:   server,
-		conns:    make(map[core.Connection]net.Conn, 16),
-		tgtAddrs: make(map[core.Connection]net.Addr, 16),
-		tgtSent:  make(map[core.Connection]bool, 16),
+		cipher:  ciph,
+		server:  server,
+		conns:   make(map[core.TCPConn]net.Conn, 16),
+		fakeDns: fakeDns,
 	}
 }
 
-func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
+	if target == nil {
+		log.Fatalf("unexpected nil target")
+	}
+
+	// Connect the relay server.
 	rc, err := net.Dial("tcp", h.server)
 	if err != nil {
 		return errors.New(fmt.Sprintf("dial remote server failed: %v", err))
 	}
 	rc = h.cipher.StreamConn(rc)
 
+	// Replace with a domain name if target address IP is a fake IP.
+	host, port, err := net.SplitHostPort(target.String())
+	if err != nil {
+		log.Errorf("error when split host port %v", err)
+	}
+	var targetHost string = host
+	if h.fakeDns != nil {
+		if ip := net.ParseIP(host); ip != nil {
+			if dns.IsFakeIP(ip) {
+				targetHost = h.fakeDns.QueryDomain(ip)
+			}
+		}
+	}
+	dest := fmt.Sprintf("%s:%s", targetHost, port)
+
+	// Write target address.
+	tgt := sssocks.ParseAddr(dest)
+	_, err = rc.Write(tgt)
+	if err != nil {
+		return fmt.Errorf("send target address failed: %v", err)
+	}
+
 	h.Lock()
 	h.conns[conn] = rc
-	h.tgtAddrs[conn] = target
 	h.Unlock()
-	rc.SetDeadline(time.Time{})
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+
+	go h.fetchInput(conn, rc)
+
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), dest)
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn core.TCPConn, data []byte) error {
 	h.Lock()
 	rc, ok1 := h.conns[conn]
 	h.Unlock()
 
 	if ok1 {
-		err := h.sendTargetAddress(conn)
-		if err != nil {
-			h.Close(conn)
-			return err
-		}
-		_, err = rc.Write(data)
+		_, err := rc.Write(data)
 		if err != nil {
 			h.Close(conn)
 			return errors.New(fmt.Sprintf("write remote failed: %v", err))
@@ -116,26 +114,20 @@ func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
 	}
 }
 
-func (h *tcpHandler) DidSend(conn core.Connection, len uint16) {
-}
-
-func (h *tcpHandler) DidClose(conn core.Connection) {
+func (h *tcpHandler) DidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) LocalDidClose(conn core.Connection) {
+func (h *tcpHandler) LocalDidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) Close(conn core.Connection) {
+func (h *tcpHandler) Close(conn core.TCPConn) {
 	h.Lock()
 	defer h.Unlock()
 
 	if rc, found := h.conns[conn]; found {
 		rc.Close()
 	}
-
 	delete(h.conns, conn)
-	delete(h.tgtAddrs, conn)
-	delete(h.tgtSent, conn)
 }

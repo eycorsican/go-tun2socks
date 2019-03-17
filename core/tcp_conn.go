@@ -14,24 +14,32 @@ import (
 	"unsafe"
 )
 
+type tcpConnState uint
+
+const (
+	tcpNewConn tcpConnState = iota
+	tcpConnecting
+	tcpConnected
+	tcpClosing
+	tcpLocalClosed
+	tcpAborting
+	tcpErrored
+)
+
 type tcpConn struct {
 	sync.Mutex
 
-	pcb         *C.struct_tcp_pcb
-	handler     ConnectionHandler
-	network     string
-	remoteAddr  net.Addr
-	localAddr   net.Addr
-	connKeyArg  unsafe.Pointer
-	connKey     uint32
-	closing     bool
-	localClosed bool
-	aborting    bool
-	errored     bool
-	canWrite    *sync.Cond // Condition variable to implement TCP backpressure.
+	pcb        *C.struct_tcp_pcb
+	handler    TCPConnHandler
+	remoteAddr net.Addr
+	localAddr  net.Addr
+	connKeyArg unsafe.Pointer
+	connKey    uint32
+	canWrite   *sync.Cond // Condition variable to implement TCP backpressure.
+	state      tcpConnState
 }
 
-func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connection, error) {
+func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) {
 	connKeyArg := newConnKeyArg()
 	connKey := rand.Uint32()
 	setConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
@@ -46,33 +54,35 @@ func newTCPConnection(pcb *C.struct_tcp_pcb, handler ConnectionHandler) (Connect
 	setTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
 	conn := &tcpConn{
-		pcb:         pcb,
-		handler:     handler,
-		network:     "tcp",
-		localAddr:   ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
-		remoteAddr:  ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
-		connKeyArg:  connKeyArg,
-		connKey:     connKey,
-		closing:     false,
-		localClosed: false,
-		aborting:    false,
-		errored:     false,
-		canWrite:    sync.NewCond(&sync.Mutex{}),
+		pcb:        pcb,
+		handler:    handler,
+		localAddr:  ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
+		remoteAddr: ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
+		connKeyArg: connKeyArg,
+		connKey:    connKey,
+		canWrite:   sync.NewCond(&sync.Mutex{}),
+		state:      tcpNewConn,
 	}
 
 	// Associate conn with key and save to the global map.
 	tcpConns.Store(connKey, conn)
 
-	// Unlocks lwip thread during connecting remote host, gives other goroutines
-	// chances to interact with the lwip thread. Assuming lwip thread has already
-	// been locked.
-	lwipMutex.Unlock()
-	err := handler.Connect(conn, conn.RemoteAddr())
-	lwipMutex.Lock()
-	if err != nil {
-		conn.abortInternal()
-		return nil, NewLWIPError(LWIP_ERR_ABRT)
-	}
+	// Connecting remote host could take some time, do it in another goroutine
+	// to prevent blocking the lwip thread.
+	conn.Lock()
+	conn.state = tcpConnecting
+	conn.Unlock()
+	go func() {
+		err := handler.Connect(conn, conn.RemoteAddr())
+		if err != nil {
+			conn.Abort()
+		} else {
+			conn.Lock()
+			conn.state = tcpConnected
+			conn.Unlock()
+		}
+	}()
+
 	return conn, NewLWIPError(LWIP_ERR_OK)
 }
 
@@ -84,21 +94,34 @@ func (conn *tcpConn) LocalAddr() net.Addr {
 	return conn.localAddr
 }
 
-func (conn *tcpConn) Receive(data []byte) error {
-	if conn.isAborting() {
+func (conn *tcpConn) receiveCheck() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	switch conn.state {
+	case tcpNewConn:
+		fallthrough
+	case tcpConnecting:
+		return NewLWIPError(LWIP_ERR_CONN)
+	case tcpAborting:
 		conn.abortInternal()
 		return NewLWIPError(LWIP_ERR_ABRT)
-	}
-	if conn.isClosing() {
+	case tcpClosing:
 		conn.closeInternal()
 		return NewLWIPError(LWIP_ERR_OK)
+	case tcpConnected:
+		return nil
+	default:
+		return NewLWIPError(LWIP_ERR_CONN)
 	}
-	// Unlocks lwip thread during sending data to remote, gives other goroutines
-	// chances to interact with the lwip thread. Assuming lwip thread has already
-	// been locked.
-	lwipMutex.Unlock()
+	return nil
+}
+
+func (conn *tcpConn) Receive(data []byte) error {
+	if err := conn.receiveCheck(); err != nil {
+		return err
+	}
 	err := conn.handler.DidReceive(conn, data)
-	lwipMutex.Lock()
 	if err != nil {
 		conn.abortInternal()
 		conn.canWrite.Broadcast()
@@ -108,11 +131,11 @@ func (conn *tcpConn) Receive(data []byte) error {
 	return NewLWIPError(LWIP_ERR_OK)
 }
 
-// tcpWrite enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
+// writeInternal enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
 // but instead tells the caller that data is not successfully enqueued, and should try
 // again another time. By calling this function, the lwIP thread is assumed to be already
 // locked by the caller.
-func (conn *tcpConn) tcpWrite(data []byte) (int, error) {
+func (conn *tcpConn) writeInternal(data []byte) (int, error) {
 	err := C.tcp_write(conn.pcb, unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.TCP_WRITE_FLAG_COPY)
 	if err == C.ERR_OK {
 		C.tcp_output(conn.pcb)
@@ -123,6 +146,26 @@ func (conn *tcpConn) tcpWrite(data []byte) (int, error) {
 	return 0, fmt.Errorf("lwip tcp_write failed with error code: %v", int(err))
 }
 
+func (conn *tcpConn) writeCheck() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	switch conn.state {
+	case tcpErrored:
+		return fmt.Errorf("connection %v->%v encountered a fatal error", conn.LocalAddr(), conn.RemoteAddr())
+	case tcpAborting:
+		return fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
+	case tcpLocalClosed:
+		return fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
+	case tcpConnected:
+		return nil
+	default:
+		// It's not likely we will get here.
+		return fmt.Errorf("connection %v->%v encountered an unknown error", conn.LocalAddr(), conn.RemoteAddr())
+	}
+	return nil
+}
+
 func (conn *tcpConn) Write(data []byte) (int, error) {
 	totalWritten := 0
 
@@ -130,14 +173,8 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 	defer conn.canWrite.L.Unlock()
 
 	for len(data) > 0 {
-		if conn.isErrored() {
-			return totalWritten, fmt.Errorf("connection %v->%v encountered a fatal error", conn.LocalAddr(), conn.RemoteAddr())
-		}
-		if conn.isAborting() {
-			return totalWritten, fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
-		}
-		if conn.isLocalClosed() {
-			return totalWritten, fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
+		if err := conn.writeCheck(); err != nil {
+			return totalWritten, err
 		}
 
 		lwipMutex.Lock()
@@ -147,7 +184,7 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 			toWrite = int(conn.pcb.snd_buf)
 		}
 		if toWrite > 0 {
-			written, err := conn.tcpWrite(data[0:toWrite])
+			written, err := conn.writeInternal(data[0:toWrite])
 			totalWritten += written
 			if err != nil {
 				lwipMutex.Unlock()
@@ -166,42 +203,21 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 }
 
 func (conn *tcpConn) Sent(len uint16) error {
-	conn.handler.DidSend(conn, len)
 	// Some packets are acknowledged by local client, check if any pending data to send.
 	return conn.CheckState()
 }
 
-func (conn *tcpConn) isClosing() bool {
-	conn.Lock()
-	defer conn.Unlock()
-	return conn.closing
-}
-
-func (conn *tcpConn) isAborting() bool {
-	conn.Lock()
-	defer conn.Unlock()
-	return conn.aborting
-}
-
-func (conn *tcpConn) isLocalClosed() bool {
-	conn.Lock()
-	defer conn.Unlock()
-	return conn.localClosed
-}
-
-func (conn *tcpConn) isErrored() bool {
-	conn.Lock()
-	defer conn.Unlock()
-	return conn.errored
-}
-
 func (conn *tcpConn) CheckState() error {
-	if conn.isAborting() {
+	conn.Lock()
+	defer conn.Unlock()
+
+	switch conn.state {
+	case tcpAborting:
 		conn.abortInternal()
 		return NewLWIPError(LWIP_ERR_ABRT)
-	}
-
-	if conn.isClosing() || conn.isLocalClosed() {
+	case tcpClosing:
+		fallthrough
+	case tcpLocalClosed:
 		conn.closeInternal()
 		return NewLWIPError(LWIP_ERR_OK)
 	}
@@ -222,7 +238,7 @@ func (conn *tcpConn) Close() error {
 
 	// Close maybe called outside of lwIP thread, we should not call tcp_close() in this
 	// function, instead just make a flag to indicate we are closing the connection.
-	conn.closing = true
+	conn.state = tcpClosing
 	return nil
 }
 
@@ -230,7 +246,7 @@ func (conn *tcpConn) setLocalClosed() error {
 	conn.Lock()
 	defer conn.Unlock()
 
-	conn.localClosed = true
+	conn.state = tcpLocalClosed
 	conn.canWrite.Broadcast()
 	return nil
 }
@@ -239,7 +255,7 @@ func (conn *tcpConn) setErrored() error {
 	conn.Lock()
 	defer conn.Unlock()
 
-	conn.errored = true
+	conn.state = tcpErrored
 	conn.canWrite.Broadcast()
 	return nil
 }
@@ -251,7 +267,7 @@ func (conn *tcpConn) closeInternal() error {
 	C.tcp_err(conn.pcb, nil)
 	C.tcp_poll(conn.pcb, nil, 0)
 
-	conn.Release()
+	conn.release()
 
 	// TODO: may return ERR_MEM if no memory to allocate segments use for closing the conn,
 	// should check and try again in Sent() for Poll() callbacks.
@@ -264,7 +280,7 @@ func (conn *tcpConn) closeInternal() error {
 }
 
 func (conn *tcpConn) abortInternal() {
-	conn.Release()
+	conn.release()
 	C.tcp_abort(conn.pcb)
 }
 
@@ -272,24 +288,24 @@ func (conn *tcpConn) Abort() {
 	conn.Lock()
 	defer conn.Unlock()
 
-	conn.aborting = true
+	conn.state = tcpAborting
 	conn.canWrite.Broadcast()
 }
 
 // The corresponding pcb is already freed when this callback is called
 func (conn *tcpConn) Err(err error) {
-	conn.Release()
+	conn.release()
 	conn.handler.DidClose(conn)
 	conn.setErrored()
 }
 
 func (conn *tcpConn) LocalDidClose() error {
 	conn.handler.LocalDidClose(conn)
-	conn.setLocalClosed()    // flag closing
-	return conn.CheckState() // check pending data
+	conn.setLocalClosed()
+	return conn.CheckState()
 }
 
-func (conn *tcpConn) Release() {
+func (conn *tcpConn) release() {
 	if _, found := tcpConns.Load(conn.connKey); found {
 		freeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)

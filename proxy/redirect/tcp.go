@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
@@ -33,18 +33,18 @@ import (
 //
 type tcpHandler struct {
 	sync.Mutex
-	conns  map[core.Connection]net.Conn
+	conns  map[core.TCPConn]net.Conn
 	target string
 }
 
-func NewTCPHandler(target string) core.ConnectionHandler {
+func NewTCPHandler(target string) core.TCPConnHandler {
 	return &tcpHandler{
-		conns:  make(map[core.Connection]net.Conn, 16),
+		conns:  make(map[core.TCPConn]net.Conn, 16),
 		target: target,
 	}
 }
 
-func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
+func (h *tcpHandler) fetchInput(conn core.TCPConn, input io.Reader) {
 	_, err := io.Copy(conn, input)
 	if err != nil {
 		h.Close(conn)
@@ -52,7 +52,7 @@ func (h *tcpHandler) fetchInput(conn core.Connection, input io.Reader) {
 	}
 }
 
-func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
+func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	c, err := net.Dial("tcp", h.target)
 	if err != nil {
 		return err
@@ -62,11 +62,11 @@ func (h *tcpHandler) Connect(conn core.Connection, target net.Addr) error {
 	h.Unlock()
 	c.SetReadDeadline(time.Time{})
 	go h.fetchInput(conn, c)
-	log.Printf("new proxy connection for target: %s:%s", target.Network(), target.String())
+	log.Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
 
-func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
+func (h *tcpHandler) DidReceive(conn core.TCPConn, data []byte) error {
 	h.Lock()
 	c, ok := h.conns[conn]
 	h.Unlock()
@@ -83,19 +83,15 @@ func (h *tcpHandler) DidReceive(conn core.Connection, data []byte) error {
 	}
 }
 
-func (h *tcpHandler) DidSend(conn core.Connection, len uint16) {
-	// unused
-}
-
-func (h *tcpHandler) DidClose(conn core.Connection) {
+func (h *tcpHandler) DidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) LocalDidClose(conn core.Connection) {
+func (h *tcpHandler) LocalDidClose(conn core.TCPConn) {
 	h.Close(conn)
 }
 
-func (h *tcpHandler) Close(conn core.Connection) {
+func (h *tcpHandler) Close(conn core.TCPConn) {
 	h.Lock()
 	defer h.Unlock()
 

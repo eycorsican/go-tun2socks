@@ -2,9 +2,9 @@ package filter
 
 import (
 	"io"
-	"log"
 	"time"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/common/packet"
 )
 

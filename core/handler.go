@@ -4,31 +4,37 @@ import (
 	"net"
 )
 
-// ConnectionHandler handles connections comming from TUN.
-type ConnectionHandler interface {
+// TCPConnHandler handles TCP connections comming from TUN.
+type TCPConnHandler interface {
 	// Connect connects the proxy server.
-	Connect(conn Connection, target net.Addr) error
+	Connect(conn TCPConn, target net.Addr) error
 
 	// DidReceive will be called when data arrives from TUN.
-	DidReceive(conn Connection, data []byte) error
-
-	// DidSend will be called when sent data has been acknowledged by local clients.
-	DidSend(conn Connection, len uint16)
+	DidReceive(conn TCPConn, data []byte) error
 
 	// DidClose will be called when the connection has been closed.
-	DidClose(conn Connection)
+	DidClose(conn TCPConn)
 
 	// LocalDidClose will be called when local client has close the connection.
-	LocalDidClose(conn Connection)
+	LocalDidClose(conn TCPConn)
 }
 
-var tcpConnectionHandler ConnectionHandler
-var udpConnectionHandler ConnectionHandler
+// UDPConnHandler handles UDP connections comming from TUN.
+type UDPConnHandler interface {
+	// Connect connects the proxy server. `target` can be nil.
+	Connect(conn UDPConn, target net.Addr) error
 
-func RegisterTCPConnectionHandler(h ConnectionHandler) {
-	tcpConnectionHandler = h
+	// DidReceive will be called when data arrives from TUN.
+	DidReceiveTo(conn UDPConn, data []byte, addr net.Addr) error
 }
 
-func RegisterUDPConnectionHandler(h ConnectionHandler) {
-	udpConnectionHandler = h
+var tcpConnHandler TCPConnHandler
+var udpConnHandler UDPConnHandler
+
+func RegisterTCPConnHandler(h TCPConnHandler) {
+	tcpConnHandler = h
+}
+
+func RegisterUDPConnHandler(h UDPConnHandler) {
+	udpConnHandler = h
 }
