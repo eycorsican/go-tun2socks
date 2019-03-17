@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	args.EnableFakeDns = flag.Bool("fakeDns", false, "Enable fake DNS (SOCKS handler)")
+	args.EnableFakeDns = flag.Bool("fakeDns", false, "Enable fake DNS (SOCKS and Shadowsocks handler)")
 
 	addPostFlagsInitFn(func() {
 		if *args.EnableFakeDns {

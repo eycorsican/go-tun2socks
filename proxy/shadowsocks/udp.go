@@ -23,10 +23,11 @@ type udpHandler struct {
 	remoteAddr net.Addr
 	conns      map[core.UDPConn]net.PacketConn
 	dnsCache   dns.DnsCache
+	fakeDns    dns.FakeDns
 	timeout    time.Duration
 }
 
-func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCache dns.DnsCache) core.UDPConnHandler {
+func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCache dns.DnsCache, fakeDns dns.FakeDns) core.UDPConnHandler {
 	ciph, err := sscore.PickCipher(cipher, []byte{}, password)
 	if err != nil {
 		log.Errorf("failed to pick a cipher: %v", err)
@@ -42,6 +43,7 @@ func NewUDPHandler(server, cipher, password string, timeout time.Duration, dnsCa
 		remoteAddr: remoteAddr,
 		conns:      make(map[core.UDPConn]net.PacketConn, 16),
 		dnsCache:   dnsCache,
+		fakeDns:    fakeDns,
 		timeout:    timeout,
 	}
 }
@@ -108,6 +110,24 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	pc, ok1 := h.conns[conn]
 	h.Unlock()
 
+	if h.fakeDns != nil {
+		_, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			panic("impossible error")
+		}
+		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			resp, err := h.fakeDns.GenerateFakeResponse(data)
+			if err == nil {
+				_, err = conn.WriteFrom(resp, addr)
+				if err != nil {
+					return errors.New(fmt.Sprintf("write dns answer failed: %v", err))
+				}
+				h.Close(conn)
+				return nil
+			}
+		}
+	}
+
 	if h.dnsCache != nil {
 		_, port, err := net.SplitHostPort(addr.String())
 		if err != nil {
@@ -126,9 +146,23 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	}
 
 	if ok1 {
-		buf := append([]byte{0, 0, 0}, sssocks.ParseAddr(addr.String())...)
+		host, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			log.Errorf("error when split host port %v", err)
+		}
+		var targetHost string = host
+		if h.fakeDns != nil {
+			if ip := net.ParseIP(host); ip != nil {
+				if dns.IsFakeIP(ip) {
+					targetHost = h.fakeDns.QueryDomain(ip)
+				}
+			}
+		}
+		dest := fmt.Sprintf("%s:%s", targetHost, port)
+
+		buf := append([]byte{0, 0, 0}, sssocks.ParseAddr(dest)...)
 		buf = append(buf, data[:]...)
-		_, err := pc.WriteTo(buf[3:], h.remoteAddr)
+		_, err = pc.WriteTo(buf[3:], h.remoteAddr)
 		if err != nil {
 			h.Close(conn)
 			return errors.New(fmt.Sprintf("write remote failed: %v", err))

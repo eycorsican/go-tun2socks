@@ -26,22 +26,27 @@ func canHandleDnsQuery(data []byte) bool {
 	req := new(dns.Msg)
 	err := req.Unpack(data)
 	if err != nil {
+		log.Debugf("cannot handle dns query: failed to unpack")
 		return false
 	}
 	if len(req.Question) != 1 {
+		log.Debugf("cannot handle dns query: multiple questions")
 		return false
 	}
 	qtype := req.Question[0].Qtype
 	if qtype != dns.TypeA && qtype != dns.TypeAAAA {
+		log.Debugf("cannot handle dns query: not A/AAAA qtype")
 		return false
 	}
 	qclass := req.Question[0].Qclass
 	if qclass != dns.ClassINET {
+		log.Debugf("cannot handle dns query: not ClassINET")
 		return false
 	}
 	fqdn := req.Question[0].Name
 	domain := fqdn[:len(fqdn)-1]
 	if _, ok := dns.IsDomainName(domain); !ok {
+		log.Debugf("cannot handle dns query: invalid domain name")
 		return false
 	}
 	return true

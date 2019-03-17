@@ -238,9 +238,23 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	}
 
 	if ok1 && ok2 {
-		buf := append([]byte{0, 0, 0}, ParseAddr(addr.String())...)
+		host, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			log.Errorf("error when split host port %v", err)
+		}
+		var targetHost string = host
+		if h.fakeDns != nil {
+			if ip := net.ParseIP(host); ip != nil {
+				if dns.IsFakeIP(ip) {
+					targetHost = h.fakeDns.QueryDomain(ip)
+				}
+			}
+		}
+		dest := fmt.Sprintf("%s:%s", targetHost, port)
+
+		buf := append([]byte{0, 0, 0}, ParseAddr(dest)...)
 		buf = append(buf, data[:]...)
-		_, err := pc.WriteTo(buf, remoteAddr)
+		_, err = pc.WriteTo(buf, remoteAddr)
 		if err != nil {
 			h.Close(conn)
 			return errors.New(fmt.Sprintf("write remote failed: %v", err))

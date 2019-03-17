@@ -34,7 +34,7 @@ func init() {
 		if *args.ProxyCipher == "" || *args.ProxyPassword == "" {
 			log.Fatalf("invalid cipher or password")
 		}
-		core.RegisterTCPConnHandler(shadowsocks.NewTCPHandler(core.ParseTCPAddr(proxyHost, proxyPort).String(), *args.ProxyCipher, *args.ProxyPassword))
-		core.RegisterUDPConnHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *args.ProxyCipher, *args.ProxyPassword, *args.UdpTimeout, dnsCache))
+		core.RegisterTCPConnHandler(shadowsocks.NewTCPHandler(core.ParseTCPAddr(proxyHost, proxyPort).String(), *args.ProxyCipher, *args.ProxyPassword, fakeDns))
+		core.RegisterUDPConnHandler(shadowsocks.NewUDPHandler(core.ParseUDPAddr(proxyHost, proxyPort).String(), *args.ProxyCipher, *args.ProxyPassword, *args.UdpTimeout, dnsCache, fakeDns))
 	})
 }
