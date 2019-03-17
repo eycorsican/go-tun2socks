@@ -34,16 +34,61 @@ Application +-> Routing table +-->                                              
 
 ```
 
-## Features
+## Main Features
 
 - Support both TCP and UDP
-- Support both IPv4 and IPv6 (but unfortunately, IPv6 still not usable on Windows because lacks of TUN support)
-- Support DNS caching
-- Support ICMP local echoing with configurable packet delay time
-- Support proxy handlers: `SOCKS5`, `Shadowsocks`, `V2Ray` (DNS cache is enabled in these handlers by default)
-- Dynamically adding routing rules according to V2Ray's routing results (V2Ray proxy handler only)
-- Intercepting DNS requests and dispatching them with V2Ray's flexible DNS client (V2Ray proxy handler only)
-- Log names of processes that create internet connections: `-applog` (UNIXs only)
+- Support both IPv4 and IPv6
+- Support proxy handlers: `SOCKS5`, `Shadowsocks`, `V2Ray`
+- ICMP echoing
+- DNS fallback
+- DNS caching
+- Fake DNS
+
+## Usage
+
+```
+Usage of tun2socks:
+  -applog
+    	Enable app logging (V2Ray, Shadowsocks and SOCKS5 handler)
+  -delayICMP int
+    	Delay ICMP packets for a short period of time, in milliseconds (default 10)
+  -disableDNSCache
+    	Disable DNS cache (SOCKS5 and Shadowsocks handler)
+  -dnsFallback
+    	Enable DNS fallback over TCP (overrides the UDP proxy handler).
+  -fakeDns
+    	Enable fake DNS (SOCKS and Shadowsocks handler)
+  -gateway string
+    	The gateway adrress of your default network, set this to enable dynamic routing, and root/admin privileges may also required for using dynamic routing (V2Ray only)
+  -loglevel string
+    	Logging level. (debug, info, warn, error, none) (default "info")
+  -proxyCipher string
+    	Cipher used for Shadowsocks proxy, available ciphers: AEAD_AES_128_GCM AEAD_AES_192_GCM AEAD_AES_256_GCM AEAD_CHACHA20_POLY1305 AES-128-CFB AES-128-CTR AES-192-CFB AES-192-CTR AES-256-CFB AES-256-CTR CHACHA20-IETF XCHACHA20 (default "AEAD_CHACHA20_POLY1305")
+  -proxyPassword string
+    	Password used for Shadowsocks proxy
+  -proxyServer string
+    	Proxy server address (host:port) for socks and Shadowsocks proxies (default "1.2.3.4:1087")
+  -proxyType string
+    	Proxy handler type, e.g. socks, shadowsocks, v2ray (default "socks")
+  -sniffingType string
+    	Enable domain sniffing for specific kind of traffic in v2ray (default "http,tls")
+  -tunAddr string
+    	TUN interface address (default "240.0.0.2")
+  -tunDns string
+    	DNS resolvers for TUN interface (only need on Windows) (default "114.114.114.114,223.5.5.5")
+  -tunGw string
+    	TUN interface gateway (default "240.0.0.1")
+  -tunMask string
+    	TUN interface netmask, as for IPv6, it's the prefixlen (default "255.255.255.0")
+  -tunName string
+    	TUN interface name (default "tun1")
+  -udpTimeout duration
+    	Set timeout for UDP proxy connections in SOCKS and Shadowsocks (default 1m0s)
+  -vconfig string
+    	Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table (default "config.json")
+  -version
+    	Print version
+```
 
 ## Build
 
@@ -175,28 +220,6 @@ route add 1.2.3.4 192.168.0.1 metric 5
 - To enable dynamic routing, just set the `-gateway` argument, for example: `tun2socks -proxyType v2ray -vconfig config.json -gateway 192.168.0.1`
 - The tag "direct" is hard coded to identify direct rules, which if dynamic routing is enabled, will indicate adding routes to the original gateway for the corresponding IP packets
 - Inbounds are not necessary
-- DNS requests will be intercepted and instead dispatching by V2Ray's DNS client, for this sake, you can have, for example, the following config to keep away from DNS poisoning and having inappropriate CDN IPs:
-```
-    "dns": {
-        "clientIP": "x.x.x.x",
-        "hosts": {
-            "localhost": "127.0.0.1",
-            "domain:lan": "127.0.0.1",
-            "domain:local": "127.0.0.1",
-            "domain:arpa": "127.0.0.1"
-        },
-        "servers": [
-            "8.8.8.8",
-            {
-                "address": "223.5.5.5",
-                "port": 53,
-                "domains": [
-                    "geosite:cn"
-                ]
-            }
-        ]
-    }
-```
 
 ## TODO
 - Built-in routing rules and routing table management
