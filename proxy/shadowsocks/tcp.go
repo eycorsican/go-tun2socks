@@ -72,7 +72,7 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 	var targetHost string = host
 	if h.fakeDns != nil {
 		if ip := net.ParseIP(host); ip != nil {
-			if dns.IsFakeIP(ip) {
+			if h.fakeDns.IsFakeIP(ip) {
 				targetHost = h.fakeDns.QueryDomain(ip)
 			}
 		}

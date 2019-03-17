@@ -1,7 +1,6 @@
 package dns
 
 import (
-	"encoding/binary"
 	"net"
 )
 
@@ -17,23 +16,12 @@ type DnsCache interface {
 }
 
 type FakeDns interface {
-	// GenerateFakeResponse generates a response for the specify request with a fake IP address.
+	// GenerateFakeResponse generates a fake dns response for the specify request.
 	GenerateFakeResponse(request []byte) ([]byte, error)
 
-	// QueryDomain returns the corresponding domain for IP.
+	// QueryDomain returns the corresponding domain for the given IP.
 	QueryDomain(ip net.IP) string
-}
 
-const (
-	// We set fake dns response ttl to 1, 256 fake ips should be suffice.
-	MinFakeIPCursor = 4043309056 // 241.0.0.0
-	MaxFakeIPCursor = 4043309311 // 241.0.0.255
-)
-
-func IsFakeIP(ip net.IP) bool {
-	n := binary.BigEndian.Uint32([]byte(ip)[net.IPv6len-net.IPv4len:])
-	if n >= MinFakeIPCursor && n <= MaxFakeIPCursor {
-		return true
-	}
-	return false
+	// IsFakeIP checks if the given ip is a fake IP.
+	IsFakeIP(ip net.IP) bool
 }

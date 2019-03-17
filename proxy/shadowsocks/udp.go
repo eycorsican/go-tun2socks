@@ -154,7 +154,7 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 		var targetHost string = host
 		if h.fakeDns != nil {
 			if ip := net.ParseIP(host); ip != nil {
-				if dns.IsFakeIP(ip) {
+				if h.fakeDns.IsFakeIP(ip) {
 					targetHost = h.fakeDns.QueryDomain(ip)
 				}
 			}
