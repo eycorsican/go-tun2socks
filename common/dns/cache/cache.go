@@ -82,10 +82,12 @@ func (c *simpleDnsCache) Query(payload []byte) []byte {
 	resp.Unpack(entry.msg)
 	resp.Id = request.Id
 	var buf [1024]byte
-	if dnsAnswer, err := resp.PackBuffer(buf[:]); err != nil {
-		return append([]byte(nil), dnsAnswer...)
+	dnsAnswer, err := resp.PackBuffer(buf[:])
+	if err != nil {
+		return nil
 	}
-	return nil
+	log.Debugf("got dns answer from cache with key: %v", key)
+	return append([]byte(nil), dnsAnswer...)
 }
 
 func (c *simpleDnsCache) Store(payload []byte) {
