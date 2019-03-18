@@ -129,10 +129,11 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 }
 
 func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
-	c, err := net.Dial("tcp", core.ParseTCPAddr(h.proxyHost, h.proxyPort).String())
+	c, err := net.DialTimeout("tcp", core.ParseTCPAddr(h.proxyHost, h.proxyPort).String(), 4*time.Second)
 	if err != nil {
 		return err
 	}
+	c.SetDeadline(time.Now().Add(4 * time.Second))
 
 	// send VER, NMETHODS, METHODS
 	c.Write([]byte{5, 1, 0})
