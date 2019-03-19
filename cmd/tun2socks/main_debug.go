@@ -7,9 +7,13 @@ package main
 import (
 	"net/http"
 	_ "net/http/pprof"
+	"runtime/debug"
 )
 
 func init() {
+	// cgo calls will consume more system threads, better keep an eye on that.
+	debug.SetMaxThreads(24)
+
 	go func() {
 		http.ListenAndServe("0.0.0.0:6060", nil)
 	}()
