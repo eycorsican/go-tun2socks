@@ -1,9 +1,8 @@
 package core
 
 /*
-#cgo CFLAGS: -I./src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/pbuf.h"
-#include "lwip/timeouts.h"
 #include "lwip/tcp.h"
 
 err_t

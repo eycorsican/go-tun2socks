@@ -1,7 +1,7 @@
 package core
 
 /*
-#cgo CFLAGS: -I./src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/tcp.h"
 #include "lwip/udp.h"
 #include "lwip/timeouts.h"
