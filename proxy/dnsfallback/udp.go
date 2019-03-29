@@ -1,6 +1,7 @@
 package dnsfallback
 
 import (
+	"encoding/binary"
 	"errors"
 	"net"
 
@@ -59,6 +60,11 @@ func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr)
 	data[2] |= dnsMaskQr | dnsMaskTc
 	// Set response code to 'no error'.
 	data[3] &= ^dnsMaskRcode
+	// Set ANCOUNT to QDCOUNT. This is technically incorrect, since the response does not
+	// include an answer. However, without it some DNS clients (i.e. Windows 7) do not retry
+	// over TCP.
+	var qdcount = binary.BigEndian.Uint16(data[4:6])
+	binary.BigEndian.PutUint16(data[6:], qdcount)
 	_, err := conn.WriteFrom(data, addr)
 	return err
 }
