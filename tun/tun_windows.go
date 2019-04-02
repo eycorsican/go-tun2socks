@@ -2,7 +2,7 @@ package tun
 
 import (
 	"encoding/binary"
-	// "encoding/hex"
+
 	"errors"
 	"fmt"
 	"io"
@@ -19,10 +19,9 @@ import (
 )
 
 const (
-	TAPWIN32_MAX_REG_SIZE    = 256
 	TUNTAP_COMPONENT_ID_0901 = "tap0901"
 	TUNTAP_COMPONENT_ID_0801 = "tap0801"
-	NETWORK_KEY              = `SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}`
+	NETWORK_KEY              = `SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}`
 	ADAPTER_KEY              = `SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}`
 )
 
@@ -44,114 +43,108 @@ var (
 	TAP_WIN_IOCTL_CONFIG_DHCP_SET_OPT = tap_control_code(9, 0)
 )
 
-func decodeUTF16(b []byte) string {
-	if len(b)%2 != 0 {
-		return ""
-	}
-
-	l := len(b) / 2
-	u16 := make([]uint16, l)
-	for i := 0; i < l; i += 1 {
-		u16[i] = uint16(b[2*i]) + (uint16(b[2*i+1]) << 8)
-	}
-	return windows.UTF16ToString(u16)
-}
-
-func getTuntapName(componentId string) (string, error) {
-	keyName := fmt.Sprintf(NETWORK_KEY+"\\%s\\Connection", componentId)
-	key, err := registry.OpenKey(registry.LOCAL_MACHINE, keyName, registry.READ)
-	if err != nil {
-		key.Close()
-		return "", err
-	}
-	var bufLength uint32 = TAPWIN32_MAX_REG_SIZE
-	buf := make([]byte, bufLength)
-	name, _ := windows.UTF16FromString("Name")
-	var valtype uint32
-	err = windows.RegQueryValueEx(
-		windows.Handle(key),
-		&name[0],
-		nil,
-		&valtype,
-		&buf[0],
-		&bufLength,
-	)
-	if err != nil {
-		key.Close()
-		return "", err
-	}
-	s := decodeUTF16(buf)
-	return s, nil
-}
-
 func getTuntapComponentId() (string, error) {
 	adapters, err := registry.OpenKey(registry.LOCAL_MACHINE, ADAPTER_KEY, registry.READ)
 	if err != nil {
 		return "", err
 	}
-	var i uint32
-	for i = 0; i < 1000; i++ {
-		var name_length uint32 = TAPWIN32_MAX_REG_SIZE
-		buf := make([]uint16, name_length)
-		if err = windows.RegEnumKeyEx(
-			windows.Handle(adapters),
-			i,
-			&buf[0],
-			&name_length,
-			nil,
-			nil,
-			nil,
-			nil); err != nil {
-			return "", err
-		}
-		key_name := windows.UTF16ToString(buf[:])
-		adapter, err := registry.OpenKey(adapters, key_name, registry.READ)
-		if err != nil {
-			continue
-		}
-		name, _ := windows.UTF16FromString("ComponentId")
-		name2, _ := windows.UTF16FromString("NetCfgInstanceId")
-		var valtype uint32
-		var component_id = make([]byte, TAPWIN32_MAX_REG_SIZE)
-		var componentLen = uint32(len(component_id))
-		if err = windows.RegQueryValueEx(
-			windows.Handle(adapter),
-			&name[0],
-			nil,
-			&valtype,
-			&component_id[0],
-			&componentLen); err != nil {
+
+	names, err := adapters.ReadSubKeyNames(0)
+	if err != nil {
+		return "", err
+	}
+
+	for i := 0; i < len(names); i++ {
+		if names[i] == "Configuration" || names[i] == "Properties" {
 			continue
 		}
 
-		id := decodeUTF16(component_id)
-		if id == TUNTAP_COMPONENT_ID_0901 || id == TUNTAP_COMPONENT_ID_0801 {
-			var valtype uint32
-			var netCfgInstanceId = make([]byte, TAPWIN32_MAX_REG_SIZE)
-			var netCfgInstanceIdLen = uint32(len(netCfgInstanceId))
-			if err = windows.RegQueryValueEx(
-				windows.Handle(adapter),
-				&name2[0],
-				nil,
-				&valtype,
-				&netCfgInstanceId[0],
-				&netCfgInstanceIdLen); err != nil {
-				return "", err
-			}
-			s := decodeUTF16(netCfgInstanceId)
-			log.Printf("device component id: %s", s)
+		adapter, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("%s\\%s", ADAPTER_KEY, names[i]), registry.READ)
+		if err != nil {
 			adapter.Close()
-			adapters.Close()
-			return s, nil
+			continue
 		}
-		adapter.Close()
+
+		name, _, err := adapter.GetStringValue("ComponentId")
+		if err != nil {
+			continue
+		}
+
+		if name == TUNTAP_COMPONENT_ID_0901 || name == TUNTAP_COMPONENT_ID_0801 {
+			id, _, err := adapter.GetStringValue("NetCfgInstanceId")
+			if err == nil {
+				log.Printf("device component id: %s", id)
+				return id, err
+			}
+		}
 	}
-	adapters.Close()
+
+	return "", errors.New("not found component id")
+}
+
+func getTuntapName(componentId string) (string, error) {
+	adapter, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("%s\\%s\\Connection", NETWORK_KEY, componentId), registry.READ)
+	if err != nil {
+		adapter.Close()
+		return "", err
+	}
+
+	name, _, err := adapter.GetStringValue("Name")
+	return name, err
+}
+
+func getTuntapComponentIdFromName(adapterName string) (string, error) {
+	adapters, err := registry.OpenKey(registry.LOCAL_MACHINE, ADAPTER_KEY, registry.READ)
+	if err != nil {
+		return "", err
+	}
+
+	names, err := adapters.ReadSubKeyNames(0)
+	if err != nil {
+		return "", err
+	}
+
+	for i := 0; i < len(names); i++ {
+		if names[i] == "Configuration" || names[i] == "Properties" {
+			continue
+		}
+
+		adapter, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("%s\\%s", ADAPTER_KEY, names[i]), registry.READ)
+		if err != nil {
+			adapter.Close()
+			continue
+		}
+
+		name, _, err := adapter.GetStringValue("ComponentId")
+		if err != nil {
+			continue
+		}
+
+		if name == TUNTAP_COMPONENT_ID_0901 || name == TUNTAP_COMPONENT_ID_0801 {
+			id, _, err := adapter.GetStringValue("NetCfgInstanceId")
+			if err == nil {
+				_adapterName, err := getTuntapName(id)
+				if err == nil {
+					if adapterName == _adapterName {
+						log.Printf("device component id: %s", id)
+						return id, nil
+					}
+				}
+			}
+		}
+	}
+
 	return "", errors.New("not found component id")
 }
 
 func OpenTunDevice(name, addr, gw, mask string, dns []string) (io.ReadWriteCloser, error) {
-	componentId, err := getTuntapComponentId()
+	var componentId string
+	var err error
+	if name == "tun1" {
+		componentId, err = getTuntapComponentId()
+	} else {
+		componentId, err = getTuntapComponentIdFromName(name)
+	}
 	if err != nil {
 		return nil, err
 	}
