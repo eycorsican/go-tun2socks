@@ -195,6 +195,8 @@ ip route add 1.2.3.4/32 via 192.168.0.1
 
 ### Windows
 
+[使用教程](https://medium.com/@TachyonDevel/%E6%95%99%E7%A8%8B-%E5%9C%A8-windows-%E4%B8%8A%E4%BD%BF%E7%94%A8-tun2socks-%E8%BF%9B%E8%A1%8C%E5%85%A8%E5%B1%80%E4%BB%A3%E7%90%86-aa51869dd0d) - Tutorial in Chinese
+
 To create a TUN device on Windows, you need [Tap-windows](http://build.openvpn.net/downloads/releases/), refer [here](https://code.google.com/archive/p/badvpn/wikis/tun2socks.wiki) for more information.
 
 Add our TUN interface as the default gateway:
