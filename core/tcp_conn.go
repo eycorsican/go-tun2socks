@@ -32,18 +32,18 @@ const (
 type tcpConn struct {
 	sync.Mutex
 
-	pcb          *C.struct_tcp_pcb
-	handler      TCPConnHandler
-	remoteAddr   net.Addr
-	localAddr    net.Addr
-	connKeyArg   unsafe.Pointer
-	connKey      uint32
-	canWrite     *sync.Cond // Condition variable to implement TCP backpressure.
-	state        tcpConnState
-	sndBufReader *io.PipeReader
-	sndBufWriter *io.PipeWriter
-	closeOnce    sync.Once
-	closeErr     error
+	pcb           *C.struct_tcp_pcb
+	handler       TCPConnHandler
+	remoteAddr    net.Addr
+	localAddr     net.Addr
+	connKeyArg    unsafe.Pointer
+	connKey       uint32
+	canWrite      *sync.Cond // Condition variable to implement TCP backpressure.
+	state         tcpConnState
+	sndPipeReader *io.PipeReader
+	sndPipeWriter *io.PipeWriter
+	closeOnce     sync.Once
+	closeErr      error
 }
 
 func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) {
@@ -62,16 +62,16 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 
 	pipeReader, pipeWriter := io.Pipe()
 	conn := &tcpConn{
-		pcb:          pcb,
-		handler:      handler,
-		localAddr:    ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
-		remoteAddr:   ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
-		connKeyArg:   connKeyArg,
-		connKey:      connKey,
-		canWrite:     sync.NewCond(&sync.Mutex{}),
-		state:        tcpNewConn,
-		sndBufReader: pipeReader,
-		sndBufWriter: pipeWriter,
+		pcb:           pcb,
+		handler:       handler,
+		localAddr:     ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
+		remoteAddr:    ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
+		connKeyArg:    connKeyArg,
+		connKey:       connKey,
+		canWrite:      sync.NewCond(&sync.Mutex{}),
+		state:         tcpNewConn,
+		sndPipeReader: pipeReader,
+		sndPipeWriter: pipeWriter,
 	}
 
 	// Associate conn with key and save to the global map.
@@ -141,7 +141,7 @@ func (conn *tcpConn) Receive(data []byte) error {
 	if err := conn.receiveCheck(); err != nil {
 		return err
 	}
-	n, err := conn.sndBufWriter.Write(data)
+	n, err := conn.sndPipeWriter.Write(data)
 	if err != nil {
 		return NewLWIPError(LWIP_ERR_CONN)
 	}
@@ -150,7 +150,7 @@ func (conn *tcpConn) Receive(data []byte) error {
 }
 
 func (conn *tcpConn) Read(data []byte) (int, error) {
-	return conn.sndBufReader.Read(data)
+	return conn.sndPipeReader.Read(data)
 }
 
 // writeInternal enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
@@ -339,8 +339,8 @@ func (conn *tcpConn) release() {
 		freeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
 	}
-	conn.sndBufReader.Close()
-	conn.sndBufWriter.Close()
+	conn.sndPipeReader.Close()
+	conn.sndPipeWriter.Close()
 	conn.state = tcpClosed
 }
 
