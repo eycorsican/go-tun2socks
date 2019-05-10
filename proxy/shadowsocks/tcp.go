@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
@@ -16,26 +15,25 @@ import (
 )
 
 type tcpHandler struct {
-	sync.Mutex
-
-	cipher sscore.Cipher
-	server string
-	conns  map[core.TCPConn]net.Conn
-
+	cipher  sscore.Cipher
+	server  string
 	fakeDns dns.FakeDns
 }
 
-func (h *tcpHandler) fetchInput(conn core.TCPConn, input io.Reader) {
+func (h *tcpHandler) handleInput(conn net.Conn, input io.ReadCloser) {
 	defer func() {
-		h.Close(conn)
-		conn.Close() // also close tun2socks connection here
+		conn.Close()
+		input.Close()
 	}()
+	io.Copy(conn, input)
+}
 
-	_, err := io.Copy(conn, input)
-	if err != nil {
-		// log.Printf("fetch input failed: %v", err)
-		return
-	}
+func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
+	defer func() {
+		conn.Close()
+		output.Close()
+	}()
+	io.Copy(output, conn)
 }
 
 func NewTCPHandler(server, cipher, password string, fakeDns dns.FakeDns) core.TCPConnHandler {
@@ -43,16 +41,14 @@ func NewTCPHandler(server, cipher, password string, fakeDns dns.FakeDns) core.TC
 	if err != nil {
 		log.Errorf("failed to pick a cipher: %v", err)
 	}
-
 	return &tcpHandler{
 		cipher:  ciph,
 		server:  server,
-		conns:   make(map[core.TCPConn]net.Conn, 16),
 		fakeDns: fakeDns,
 	}
 }
 
-func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
+func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
 	if target == nil {
 		log.Fatalf("unexpected nil target")
 	}
@@ -86,48 +82,9 @@ func (h *tcpHandler) Connect(conn core.TCPConn, target net.Addr) error {
 		return fmt.Errorf("send target address failed: %v", err)
 	}
 
-	h.Lock()
-	h.conns[conn] = rc
-	h.Unlock()
-
-	go h.fetchInput(conn, rc)
+	go h.handleInput(conn, rc)
+	go h.handleOutput(conn, rc)
 
 	log.Infof("new proxy connection for target: %s:%s", target.Network(), dest)
 	return nil
-}
-
-func (h *tcpHandler) DidReceive(conn core.TCPConn, data []byte) error {
-	h.Lock()
-	rc, ok1 := h.conns[conn]
-	h.Unlock()
-
-	if ok1 {
-		_, err := rc.Write(data)
-		if err != nil {
-			h.Close(conn)
-			return errors.New(fmt.Sprintf("write remote failed: %v", err))
-		}
-		return nil
-	} else {
-		h.Close(conn)
-		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), conn.RemoteAddr()))
-	}
-}
-
-func (h *tcpHandler) DidClose(conn core.TCPConn) {
-	h.Close(conn)
-}
-
-func (h *tcpHandler) LocalDidClose(conn core.TCPConn) {
-	h.Close(conn)
-}
-
-func (h *tcpHandler) Close(conn core.TCPConn) {
-	h.Lock()
-	defer h.Unlock()
-
-	if rc, found := h.conns[conn]; found {
-		rc.Close()
-	}
-	delete(h.conns, conn)
 }

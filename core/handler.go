@@ -6,17 +6,8 @@ import (
 
 // TCPConnHandler handles TCP connections comming from TUN.
 type TCPConnHandler interface {
-	// Connect connects the proxy server.
-	Connect(conn TCPConn, target net.Addr) error
-
-	// DidReceive will be called when data arrives from TUN.
-	DidReceive(conn TCPConn, data []byte) error
-
-	// DidClose will be called when the connection has been closed.
-	DidClose(conn TCPConn)
-
-	// LocalDidClose will be called when local client has close the connection.
-	LocalDidClose(conn TCPConn)
+	// Handle handles the conn for target.
+	Handle(conn net.Conn, target net.Addr) error
 }
 
 // UDPConnHandler handles UDP connections comming from TUN.
