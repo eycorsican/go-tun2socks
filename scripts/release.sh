@@ -28,9 +28,11 @@ declare -a executables=(\
 )
 eval $list_assets_cmd
 if [ $? -ne 0 ]; then
+	cd build
 	for i in ${executables[@]}; do
-		zip "build/$i.zip" "build/$i"
+		zip "$i.zip" "$i"
 	done
+	cd ..
 fi
 
 owner=eycorsican
