@@ -41,14 +41,12 @@ func cacheKey(q dns.Question) string {
 func (c *simpleDnsCache) cleanup() {
 	newStorage := make(map[string]*dnsCacheEntry)
 	log.Debugf("cleaning up dns %v cache entries", len(c.storage))
-	c.mutex.Lock()
 	for key, entry := range c.storage {
 		if time.Now().Before(entry.exp) {
 			newStorage[key] = entry
 		}
 	}
 	c.storage = newStorage
-	c.mutex.Unlock()
 	log.Debugf("cleanup done, remaining %v entries", len(c.storage))
 }
 
