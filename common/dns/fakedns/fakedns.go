@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	// If fake dns response ttl is set to 1, 256 fake ips should be suffice.
-	MinFakeIPCursor uint32 = 0xf1000000 // 241.0.0.0
-	MaxFakeIPCursor uint32 = 0xf10000ff // 241.0.0.255
 	FakeResponseTtl uint32 = 1          // in sec
 )
 
@@ -73,10 +70,19 @@ func ip2uint32(ip net.IP) uint32 {
 	return binary.BigEndian.Uint32([]byte(ip)[net.IPv6len-net.IPv4len:])
 }
 
-func NewSimpleFakeDns() cdns.FakeDns {
+func NewSimpleFakeDns(minIP, maxIP string) cdns.FakeDns {
+	parsedMinIP := net.ParseIP(minIP)
+	parsedMaxIP := net.ParseIP(maxIP)
+	if parsedMinIP == nil || parsedMaxIP == nil {
+		return nil
+	}
+	minFakeIPCursor := ip2uint32(parsedMinIP)
+	maxFakeIPCursor := ip2uint32(parsedMaxIP)
 	return &simpleFakeDns{
 		ip2domain: make(map[uint32]string, 64),
-		cursor:    MinFakeIPCursor,
+		cursor:    minFakeIPCursor,
+		minCursor: minFakeIPCursor,
+		maxCursor: maxFakeIPCursor,
 	}
 }
 
@@ -86,8 +92,8 @@ func (f *simpleFakeDns) allocateIP(domain string) net.IP {
 	f.ip2domain[f.cursor] = domain
 	ip := uint322ip(f.cursor)
 	f.cursor += 1
-	if f.cursor > MaxFakeIPCursor {
-		f.cursor = MinFakeIPCursor
+	if f.cursor > f.maxCursor {
+		f.cursor = f.minCursor
 	}
 	return ip
 }
@@ -151,7 +157,7 @@ func (f *simpleFakeDns) GenerateFakeResponse(request []byte) ([]byte, error) {
 
 func (f *simpleFakeDns) IsFakeIP(ip net.IP) bool {
 	c := ip2uint32(ip)
-	if c >= MinFakeIPCursor && c <= MaxFakeIPCursor {
+	if c >= f.minCursor && c <= f.maxCursor {
 		return true
 	}
 	return false

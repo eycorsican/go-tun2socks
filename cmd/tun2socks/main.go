@@ -55,6 +55,8 @@ type CmdArgs struct {
 	DnsFallback     *bool
 	LogLevel        *string
 	EnableFakeDns   *bool
+	FakeDnsMinIP *string
+	FakeDnsMaxIP *string
 }
 
 type cmdFlag uint
