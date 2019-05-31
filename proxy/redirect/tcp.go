@@ -31,23 +31,47 @@ type tcpHandler struct {
 	target string
 }
 
+type duplexConn interface {
+	net.Conn
+	CloseWrite() error
+	CloseRead() error
+}
+
 func NewTCPHandler(target string) core.TCPConnHandler {
 	return &tcpHandler{target: target}
 }
 
 func (h *tcpHandler) handleInput(conn net.Conn, input io.ReadCloser) {
 	defer func() {
-		conn.Close()
-		input.Close()
+		if tcpConn, ok := conn.(core.TCPConn); ok {
+			tcpConn.CloseWrite()
+		} else {
+			conn.Close()
+		}
+		if tcpInput, ok := input.(duplexConn); ok {
+			tcpInput.CloseRead()
+		} else {
+			input.Close()
+		}
 	}()
+
 	io.Copy(conn, input)
 }
 
 func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
 	defer func() {
-		conn.Close()
-		output.Close()
+		if tcpConn, ok := conn.(core.TCPConn); ok {
+			tcpConn.CloseRead()
+		} else {
+			conn.Close()
+		}
+		if tcpOutput, ok := output.(duplexConn); ok {
+			tcpOutput.CloseWrite()
+		} else {
+			output.Close()
+		}
 	}()
+
 	io.Copy(output, conn)
 }
 

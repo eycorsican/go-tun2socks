@@ -66,7 +66,7 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 			for {
 				select {
 				case pkt := <-conn.pending:
-					err := conn.handler.DidReceiveTo(conn, pkt.data, pkt.addr)
+					err := conn.handler.ReceiveTo(conn, pkt.data, pkt.addr)
 					if err != nil {
 						break DrainPending
 					}
@@ -119,7 +119,7 @@ func (conn *udpConn) ReceiveTo(data []byte, addr net.Addr) error {
 	if err := conn.checkState(); err != nil {
 		return err
 	}
-	err := conn.handler.DidReceiveTo(conn, data, addr)
+	err := conn.handler.ReceiveTo(conn, data, addr)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}

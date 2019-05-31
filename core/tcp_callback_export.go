@@ -63,8 +63,8 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	}
 
 	if p == nil {
-		// The connection has been closed.
-		err := conn.(TCPConn).LocalDidClose()
+		// Peer closed, EOF.
+		err := conn.(TCPConn).LocalClosed()
 		if err.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
 		} else if err.(*lwipError).Code == LWIP_ERR_OK {
@@ -77,6 +77,8 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	if recvErr != nil {
 		if recvErr.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
+		} else if recvErr.(*lwipError).Code == LWIP_ERR_CLSD {
+			return C.ERR_CLSD
 		} else if recvErr.(*lwipError).Code == LWIP_ERR_OK {
 			return C.ERR_OK
 		} else if recvErr.(*lwipError).Code == LWIP_ERR_CONN {

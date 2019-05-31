@@ -191,7 +191,7 @@ func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
 	h.Lock()
 	pc, ok1 := h.udpConns[conn]
 	remoteAddr, ok2 := h.remoteAddrs[conn]

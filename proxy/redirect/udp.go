@@ -70,7 +70,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
 	h.Lock()
 	pc, ok1 := h.udpConns[conn]
 	tgtAddr, ok2 := h.udpTargetAddrs[conn]

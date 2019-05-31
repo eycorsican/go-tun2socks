@@ -44,6 +44,7 @@ const (
 	LWIP_ERR_OK int = iota
 	LWIP_ERR_ABRT
 	LWIP_ERR_CONN
+	LWIP_ERR_CLSD
 )
 
 type lwipError struct {

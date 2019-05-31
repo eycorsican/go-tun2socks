@@ -19,13 +19,39 @@ import (
 type tcpConnState uint
 
 const (
+	// tcpNewConn is the initial state.
 	tcpNewConn tcpConnState = iota
+
+	// tcpConnecting indicates the handler is still connecting remote host.
 	tcpConnecting
+
+	// tcpConnected indicates the connection has been established, handler
+	// may write data to TUN, and read data from TUN.
 	tcpConnected
+
+	// tcpWriteClosed indicates the handler has closed the writing side
+	// of the connection, no more data will send to TUN, but handler can still
+	// read data from TUN.
+	tcpWriteClosed
+
+	// tcpReceiveClosed indicates lwIP has received a FIN segment from
+	// local peer, the reading side is closed, no more data can be read
+	// from TUN, but handler can still write data to TUN.
+	tcpReceiveClosed
+
+	// tcpClosing indicates both reading side and writing side are closed,
+	// resources deallocation will be triggered at any time in lwIP callbacks.
 	tcpClosing
-	tcpClosed
-	tcpLocalClosed
+
+	// tcpAborting indicates the connection is aborting, resources deallocation
+	// will be triggered at any time in lwIP callbacks.
 	tcpAborting
+
+	// tcpClosed indicates the connection has been closed, resources were freed.
+	tcpClosed
+
+	// tcpErrord indicates an fatal error occured on the connection, resources
+	// were freed.
 	tcpErrored
 )
 
@@ -119,18 +145,21 @@ func (conn *tcpConn) receiveCheck() error {
 	defer conn.Unlock()
 
 	switch conn.state {
+	case tcpConnected:
+		fallthrough
+	case tcpWriteClosed:
+		return nil
 	case tcpNewConn:
 		fallthrough
 	case tcpConnecting:
 		return NewLWIPError(LWIP_ERR_CONN)
+	case tcpReceiveClosed:
+		fallthrough
+	case tcpClosing:
+		return NewLWIPError(LWIP_ERR_CLSD)
 	case tcpAborting:
 		conn.abortInternal()
 		return NewLWIPError(LWIP_ERR_ABRT)
-	case tcpClosing:
-		conn.closeInternal()
-		return NewLWIPError(LWIP_ERR_OK)
-	case tcpConnected:
-		return nil
 	default:
 		return NewLWIPError(LWIP_ERR_CONN)
 	}
@@ -143,14 +172,30 @@ func (conn *tcpConn) Receive(data []byte) error {
 	}
 	n, err := conn.sndPipeWriter.Write(data)
 	if err != nil {
-		return NewLWIPError(LWIP_ERR_CONN)
+		return NewLWIPError(LWIP_ERR_CLSD)
 	}
 	C.tcp_recved(conn.pcb, C.u16_t(n))
 	return NewLWIPError(LWIP_ERR_OK)
 }
 
 func (conn *tcpConn) Read(data []byte) (int, error) {
-	return conn.sndPipeReader.Read(data)
+	conn.Lock()
+	if conn.state == tcpReceiveClosed {
+		conn.Unlock()
+		return 0, io.EOF
+	}
+	if conn.state >= tcpClosing {
+		conn.Unlock()
+		return 0, io.ErrClosedPipe
+	}
+	conn.Unlock()
+
+	// Handler should get EOF.
+	n, err := conn.sndPipeReader.Read(data)
+	if err == io.ErrClosedPipe {
+		err = io.EOF
+	}
+	return n, err
 }
 
 // writeInternal enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
@@ -165,7 +210,7 @@ func (conn *tcpConn) writeInternal(data []byte) (int, error) {
 	} else if err == C.ERR_MEM {
 		return 0, nil
 	}
-	return 0, fmt.Errorf("lwip tcp_write failed with error code: %v", int(err))
+	return 0, fmt.Errorf("tcp_write failed (%v)", int(err))
 }
 
 func (conn *tcpConn) writeCheck() error {
@@ -173,21 +218,25 @@ func (conn *tcpConn) writeCheck() error {
 	defer conn.Unlock()
 
 	switch conn.state {
-	case tcpErrored:
-		return fmt.Errorf("connection %v->%v encountered a fatal error", conn.LocalAddr(), conn.RemoteAddr())
-	case tcpAborting:
-		return fmt.Errorf("connection %v->%v is aborting", conn.LocalAddr(), conn.RemoteAddr())
-	case tcpClosing:
-		return fmt.Errorf("connection %v->%v is closing", conn.LocalAddr(), conn.RemoteAddr())
-	case tcpClosed:
-		return fmt.Errorf("connection %v->%v was closed", conn.LocalAddr(), conn.RemoteAddr())
-	case tcpLocalClosed:
-		return fmt.Errorf("connection %v->%v was closed by local", conn.LocalAddr(), conn.RemoteAddr())
+	case tcpConnecting:
+		fallthrough
 	case tcpConnected:
+		fallthrough
+	case tcpReceiveClosed:
 		return nil
+	case tcpWriteClosed:
+		fallthrough
+	case tcpClosing:
+		fallthrough
+	case tcpClosed:
+		fallthrough
+	case tcpErrored:
+		fallthrough
+	case tcpAborting:
+		return io.ErrClosedPipe
 	default:
 		// It's not likely we will get here.
-		return fmt.Errorf("connection %v->%v encountered an unknown error", conn.LocalAddr(), conn.RemoteAddr())
+		return fmt.Errorf("connection %v->%v encountered an unknown error (%v)", conn.LocalAddr(), conn.RemoteAddr(), conn.state)
 	}
 	return nil
 }
@@ -228,24 +277,78 @@ func (conn *tcpConn) Write(data []byte) (int, error) {
 	return totalWritten, nil
 }
 
-func (conn *tcpConn) Sent(len uint16) error {
-	// Some packets are acknowledged by local client, check if any pending data to send.
-	return conn.CheckState()
+func (conn *tcpConn) CloseWrite() error {
+	conn.Lock()
+	if conn.state >= tcpClosing || conn.state == tcpWriteClosed {
+		conn.Unlock()
+		return nil
+	}
+	if conn.state == tcpReceiveClosed {
+		conn.state = tcpClosing
+	} else {
+		conn.state = tcpWriteClosed
+	}
+	conn.Unlock()
+
+	lwipMutex.Lock()
+	// FIXME Handle tcp_shutdown error.
+	C.tcp_shutdown(conn.pcb, 0, 1)
+	lwipMutex.Unlock()
+
+	return nil
 }
 
-func (conn *tcpConn) CheckState() error {
+func (conn *tcpConn) CloseRead() error {
+	return conn.sndPipeReader.Close()
+}
+
+func (conn *tcpConn) Sent(len uint16) error {
+	// Some packets are acknowledged by local client, check if any pending data to send.
+	return conn.checkState()
+}
+
+func (conn *tcpConn) checkClosing() error {
 	conn.Lock()
 	defer conn.Unlock()
 
-	switch conn.state {
-	case tcpAborting:
-		conn.abortInternal()
-		return NewLWIPError(LWIP_ERR_ABRT)
-	case tcpClosing:
-		fallthrough
-	case tcpLocalClosed:
+	if conn.state == tcpClosing {
 		conn.closeInternal()
 		return NewLWIPError(LWIP_ERR_OK)
+	}
+	return nil
+}
+
+func (conn *tcpConn) checkAborting() error {
+	conn.Lock()
+	defer conn.Unlock()
+
+	if conn.state == tcpAborting {
+		conn.abortInternal()
+		return NewLWIPError(LWIP_ERR_ABRT)
+	}
+	return nil
+}
+
+func (conn *tcpConn) isClosed() bool {
+	conn.Lock()
+	defer conn.Unlock()
+
+	return conn.state == tcpClosed
+}
+
+func (conn *tcpConn) checkState() error {
+	if conn.isClosed() {
+		return nil
+	}
+
+	err := conn.checkClosing()
+	if err != nil {
+		return err
+	}
+
+	err = conn.checkAborting()
+	if err != nil {
+		return err
 	}
 
 	// Signal the writer to try writting.
@@ -260,39 +363,37 @@ func (conn *tcpConn) Close() error {
 }
 
 func (conn *tcpConn) close() {
-	conn.sndPipeWriter.Close()
-
-	lwipMutex.Lock()
-	C.tcp_shutdown(conn.pcb, 0, 1) // Close the TX side ASAP.
-	lwipMutex.Unlock()
-
-	conn.Lock()
-	defer conn.Unlock()
-
-	// Close maybe called outside of lwIP thread, we should not call tcp_close() in this
-	// function, instead just make a flag to indicate we are closing the connection.
-	conn.state = tcpClosing
-	conn.closeErr = nil
+	err := conn.CloseRead()
+	if err != nil {
+		conn.closeErr = err
+	}
+	err = conn.CloseWrite()
+	if err != nil {
+		conn.closeErr = err
+	}
 }
 
 func (conn *tcpConn) setLocalClosed() error {
 	conn.Lock()
 	defer conn.Unlock()
 
-	conn.state = tcpLocalClosed
+	if conn.state >= tcpClosing || conn.state == tcpReceiveClosed {
+		return nil
+	}
+
+	// Causes the read half of the pipe returns.
+	conn.sndPipeWriter.Close()
+
+	if conn.state == tcpWriteClosed {
+		conn.state = tcpClosing
+	} else {
+		conn.state = tcpReceiveClosed
+	}
 	conn.canWrite.Broadcast()
 	return nil
 }
 
-func (conn *tcpConn) setErrored() error {
-	conn.Lock()
-	defer conn.Unlock()
-
-	conn.state = tcpErrored
-	conn.canWrite.Broadcast()
-	return nil
-}
-
+// Never call this function outside of the lwIP thread.
 func (conn *tcpConn) closeInternal() error {
 	C.tcp_arg(conn.pcb, nil)
 	C.tcp_recv(conn.pcb, nil)
@@ -302,8 +403,7 @@ func (conn *tcpConn) closeInternal() error {
 
 	conn.release()
 
-	// TODO: may return ERR_MEM if no memory to allocate segments use for closing the conn,
-	// should check and try again in Sent() for Poll() callbacks.
+	// FIXME Handle error.
 	err := C.tcp_close(conn.pcb)
 	if err == C.ERR_OK {
 		return nil
@@ -312,6 +412,8 @@ func (conn *tcpConn) closeInternal() error {
 	}
 }
 
+// Never call this function outside of the lwIP thread since it calls
+// tcp_abort() and in that case we must return ERR_ABRT to lwIP.
 func (conn *tcpConn) abortInternal() {
 	conn.release()
 	C.tcp_abort(conn.pcb)
@@ -325,15 +427,18 @@ func (conn *tcpConn) Abort() {
 	conn.canWrite.Broadcast()
 }
 
-// The corresponding pcb is already freed when this callback is called
 func (conn *tcpConn) Err(err error) {
+	conn.Lock()
+	defer conn.Unlock()
+
 	conn.release()
-	conn.setErrored()
+	conn.state = tcpErrored
+	conn.canWrite.Broadcast()
 }
 
-func (conn *tcpConn) LocalDidClose() error {
+func (conn *tcpConn) LocalClosed() error {
 	conn.setLocalClosed()
-	return conn.CheckState()
+	return conn.checkState()
 }
 
 func (conn *tcpConn) release() {
@@ -341,10 +446,11 @@ func (conn *tcpConn) release() {
 		freeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
 	}
+	conn.sndPipeWriter.Close()
 	conn.sndPipeReader.Close()
 	conn.state = tcpClosed
 }
 
 func (conn *tcpConn) Poll() error {
-	return conn.CheckState()
+	return conn.checkState()
 }

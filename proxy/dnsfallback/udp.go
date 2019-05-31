@@ -37,7 +37,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) DidReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
 	if len(data) < dnsHeaderLength {
 		return errors.New("Received malformed DNS query")
 	}

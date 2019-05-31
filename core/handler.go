@@ -12,11 +12,11 @@ type TCPConnHandler interface {
 
 // UDPConnHandler handles UDP connections comming from TUN.
 type UDPConnHandler interface {
-	// Connect connects the proxy server. `target` can be nil.
+	// Connect connects the proxy server. Note that target can be nil.
 	Connect(conn UDPConn, target net.Addr) error
 
-	// DidReceive will be called when data arrives from TUN.
-	DidReceiveTo(conn UDPConn, data []byte, addr net.Addr) error
+	// ReceiveTo will be called when data arrives from TUN.
+	ReceiveTo(conn UDPConn, data []byte, addr net.Addr) error
 }
 
 var tcpConnHandler TCPConnHandler
