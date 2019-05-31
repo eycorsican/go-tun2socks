@@ -1,4 +1,5 @@
 // +build !darwin ios
+// +build !windows
 
 package lsof
 
