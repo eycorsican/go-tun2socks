@@ -73,6 +73,8 @@ func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
 	}
 	go h.handleInput(conn, c)
 	go h.handleOutput(conn, c)
-	log.Infof("new proxy connection for target: %s:%s", target.Network(), fmt.Sprintf("%s:%s", targetHost, port))
+
+	log.Access(target.Network(), conn.LocalAddr().String(), dest)
+
 	return nil
 }

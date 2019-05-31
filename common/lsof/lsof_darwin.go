@@ -1,4 +1,4 @@
-// +build linux darwin
+// +build darwin,!ios
 
 package lsof
 

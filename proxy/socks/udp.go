@@ -186,7 +186,7 @@ func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 	h.Unlock()
 	go h.fetchUDPInput(conn, pc)
 	if len(dest) != 0 {
-		log.Infof("new proxy connection for target: udp:%s", dest)
+		log.Access("udp", conn.LocalAddr().String(), dest)
 	}
 	return nil
 }

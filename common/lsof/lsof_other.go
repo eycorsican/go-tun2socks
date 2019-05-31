@@ -1,3 +1,5 @@
+// +build !darwin ios
+
 package lsof
 
 import (
