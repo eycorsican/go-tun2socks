@@ -77,8 +77,6 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 	if recvErr != nil {
 		if recvErr.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
-		} else if recvErr.(*lwipError).Code == LWIP_ERR_CLSD {
-			return C.ERR_CLSD
 		} else if recvErr.(*lwipError).Code == LWIP_ERR_OK {
 			return C.ERR_OK
 		} else if recvErr.(*lwipError).Code == LWIP_ERR_CONN {
@@ -86,6 +84,9 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 			// lwip will store it and try again later.
 			shouldFreePbuf = false
 			return C.ERR_CONN
+		} else if recvErr.(*lwipError).Code == LWIP_ERR_CLSD {
+			shouldFreePbuf = false
+			return C.ERR_CLSD
 		}
 	}
 
