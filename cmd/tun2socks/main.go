@@ -33,30 +33,32 @@ func addPostFlagsInitFn(fn func()) {
 }
 
 type CmdArgs struct {
-	Version         *bool
-	TunName         *string
-	TunAddr         *string
-	TunGw           *string
-	TunMask         *string
-	TunDns          *string
-	ProxyType       *string
-	VConfig         *string
-	Gateway         *string
-	SniffingType    *string
-	ProxyServer     *string
-	ProxyHost       *string
-	ProxyPort       *uint16
-	ProxyCipher     *string
-	ProxyPassword   *string
-	DelayICMP       *int
-	UdpTimeout      *time.Duration
-	Applog          *bool
-	DisableDnsCache *bool
-	DnsFallback     *bool
-	LogLevel        *string
-	EnableFakeDns   *bool
-	FakeDnsMinIP    *string
-	FakeDnsMaxIP    *string
+	Version              *bool
+	TunName              *string
+	TunAddr              *string
+	TunGw                *string
+	TunMask              *string
+	TunDns               *string
+	ProxyType            *string
+	VConfig              *string
+	Gateway              *string
+	SniffingType         *string
+	ProxyServer          *string
+	ProxyHost            *string
+	ProxyPort            *uint16
+	ProxyCipher          *string
+	ProxyPassword        *string
+	DelayICMP            *int
+	UdpTimeout           *time.Duration
+	Applog               *bool
+	DisableDnsCache      *bool
+	DnsFallback          *bool
+	LogLevel             *string
+	EnableFakeDns        *bool
+	FakeDnsMinIP         *string
+	FakeDnsMaxIP         *string
+	ExceptionApps        *string
+	ExceptionSendThrough *string
 }
 
 type cmdFlag uint

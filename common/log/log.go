@@ -49,12 +49,12 @@ func Fatalf(msg string, args ...interface{}) {
 	}
 }
 
-func Access(network, localAddr, target string) {
+func Access(outbound, network, localAddr, target string) {
 	localHost, localPortStr, _ := net.SplitHostPort(localAddr)
 	localPortInt, _ := strconv.Atoi(localPortStr)
 	cmd, err := lsof.GetCommandNameBySocket(network, localHost, uint16(localPortInt))
 	if err != nil {
 		cmd = "unknown process"
 	}
-	Infof("[proxy] [%v] [%v] %s", network, cmd, target)
+	Infof("[%v] [%v] [%v] %s", outbound, network, cmd, target)
 }

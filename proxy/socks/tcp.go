@@ -74,7 +74,7 @@ func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
 	go h.handleInput(conn, c)
 	go h.handleOutput(conn, c)
 
-	log.Access(target.Network(), conn.LocalAddr().String(), dest)
+	log.Access("proxy", target.Network(), conn.LocalAddr().String(), dest)
 
 	return nil
 }
