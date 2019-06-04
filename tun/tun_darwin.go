@@ -34,10 +34,10 @@ func OpenTunDevice(name, addr, gw, mask string, dnsServers []string) (io.ReadWri
 	tunDev, err := water.New(water.Config{
 		DeviceType: water.TUN,
 	})
-	name = tunDev.Name()
 	if err != nil {
 		return nil, err
 	}
+	name = tunDev.Name()
 	ip := net.ParseIP(addr)
 	if ip == nil {
 		return nil, errors.New("invalid IP address")
