@@ -65,9 +65,8 @@ func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
 			}
 		}
 	}
-	dest := fmt.Sprintf("%s:%s", targetHost, port)
 
-	c, err := dialer.Dial(target.Network(), dest)
+	c, err := dialer.Dial(target.Network(), target.String())
 	if err != nil {
 		return err
 	}
