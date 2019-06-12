@@ -75,7 +75,7 @@ func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
 	io.Copy(output, conn)
 }
 
-func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
+func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	c, err := net.Dial("tcp", h.target)
 	if err != nil {
 		return err

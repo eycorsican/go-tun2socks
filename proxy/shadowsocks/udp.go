@@ -88,7 +88,7 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	pc, err := net.ListenPacket("udp", "")
 	if err != nil {
 		return err
@@ -105,17 +105,13 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	h.Lock()
 	pc, ok1 := h.conns[conn]
 	h.Unlock()
 
-	if h.fakeDns != nil {
-		_, port, err := net.SplitHostPort(addr.String())
-		if err != nil {
-			panic("impossible error")
-		}
-		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+	if addr.Port == dns.COMMON_DNS_PORT {
+		if h.fakeDns != nil {
 			resp, err := h.fakeDns.GenerateFakeResponse(data)
 			if err == nil {
 				_, err = conn.WriteFrom(resp, addr)
@@ -126,16 +122,10 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) er
 				return nil
 			}
 		}
-	}
 
-	if h.dnsCache != nil {
-		_, port, err := net.SplitHostPort(addr.String())
-		if err != nil {
-			panic("impossible error")
-		}
-		if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+		if h.dnsCache != nil {
 			if answer := h.dnsCache.Query(data); answer != nil {
-				_, err = conn.WriteFrom(answer, addr)
+				_, err := conn.WriteFrom(answer, addr)
 				if err != nil {
 					return errors.New(fmt.Sprintf("cache dns answer failed: %v", err))
 				}
@@ -147,23 +137,17 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) er
 
 	if ok1 {
 		// Replace with a domain name if target address IP is a fake IP.
-		host, port, err := net.SplitHostPort(addr.String())
-		if err != nil {
-			log.Errorf("error when split host port %v", err)
+		var targetHost string
+		if h.fakeDns != nil && h.fakeDns.IsFakeIP(addr.IP) {
+			targetHost = h.fakeDns.QueryDomain(addr.IP)
+		} else {
+			targetHost = addr.IP.String()
 		}
-		var targetHost string = host
-		if h.fakeDns != nil {
-			if ip := net.ParseIP(host); ip != nil {
-				if h.fakeDns.IsFakeIP(ip) {
-					targetHost = h.fakeDns.QueryDomain(ip)
-				}
-			}
-		}
-		dest := fmt.Sprintf("%s:%s", targetHost, port)
+		dest := net.JoinHostPort(targetHost, strconv.Itoa(addr.Port))
 
 		buf := append([]byte{0, 0, 0}, sssocks.ParseAddr(dest)...)
 		buf = append(buf, data[:]...)
-		_, err = pc.WriteTo(buf[3:], h.remoteAddr)
+		_, err := pc.WriteTo(buf[3:], h.remoteAddr)
 		if err != nil {
 			h.Close(conn)
 			return errors.New(fmt.Sprintf("write remote failed: %v", err))

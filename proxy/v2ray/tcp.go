@@ -43,7 +43,7 @@ func NewTCPHandler(ctx context.Context, instance *vcore.Instance) core.TCPConnHa
 	}
 }
 
-func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
+func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	dest := vnet.DestinationFromAddr(target)
 	sid := vsession.NewID()
 	ctx := vsession.ContextWithID(h.ctx, sid)

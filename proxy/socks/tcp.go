@@ -1,9 +1,9 @@
 package socks
 
 import (
-	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 
 	"golang.org/x/net/proxy"
@@ -46,26 +46,20 @@ func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
 	io.Copy(output, conn)
 }
 
-func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
+func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	dialer, err := proxy.SOCKS5("tcp", core.ParseTCPAddr(h.proxyHost, h.proxyPort).String(), nil, nil)
 	if err != nil {
 		return err
 	}
 
 	// Replace with a domain name if target address IP is a fake IP.
-	host, port, err := net.SplitHostPort(target.String())
-	if err != nil {
-		log.Errorf("error when split host port %v", err)
+	var targetHost string
+	if h.fakeDns != nil && h.fakeDns.IsFakeIP(target.IP) {
+		targetHost = h.fakeDns.QueryDomain(target.IP)
+	} else {
+		targetHost = target.IP.String()
 	}
-	var targetHost string = host
-	if h.fakeDns != nil {
-		if ip := net.ParseIP(host); ip != nil {
-			if h.fakeDns.IsFakeIP(ip) {
-				targetHost = h.fakeDns.QueryDomain(ip)
-			}
-		}
-	}
-	dest := fmt.Sprintf("%s:%s", targetHost, port)
+	dest := net.JoinHostPort(targetHost, strconv.Itoa(target.Port))
 
 	c, err := dialer.Dial(target.Network(), dest)
 	if err != nil {

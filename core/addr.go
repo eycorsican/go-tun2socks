@@ -29,7 +29,7 @@ func ipAddrATON(cp string, addr *C.struct_ip_addr) error {
 	}
 }
 
-func ParseTCPAddr(addr string, port uint16) net.Addr {
+func ParseTCPAddr(addr string, port uint16) *net.TCPAddr {
 	netAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(addr, strconv.Itoa(int(port))))
 	if err != nil {
 		return nil
@@ -37,7 +37,7 @@ func ParseTCPAddr(addr string, port uint16) net.Addr {
 	return netAddr
 }
 
-func ParseUDPAddr(addr string, port uint16) net.Addr {
+func ParseUDPAddr(addr string, port uint16) *net.UDPAddr {
 	netAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(addr, strconv.Itoa(int(port))))
 	if err != nil {
 		return nil

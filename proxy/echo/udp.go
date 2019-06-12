@@ -14,11 +14,11 @@ func NewUDPHandler() core.UDPConnHandler {
 	return &udpHandler{}
 }
 
-func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	return nil
 }
 
-func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	// Dispatch to another goroutine, otherwise will result in deadlock.
 	payload := append([]byte(nil), data...)
 	go func(b []byte) {

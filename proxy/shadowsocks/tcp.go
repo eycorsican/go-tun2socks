@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 
 	sscore "github.com/shadowsocks/go-shadowsocks2/core"
 	sssocks "github.com/shadowsocks/go-shadowsocks2/socks"
@@ -48,7 +49,7 @@ func NewTCPHandler(server, cipher, password string, fakeDns dns.FakeDns) core.TC
 	}
 }
 
-func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
+func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	if target == nil {
 		log.Fatalf("unexpected nil target")
 	}
@@ -61,19 +62,13 @@ func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
 	rc = h.cipher.StreamConn(rc)
 
 	// Replace with a domain name if target address IP is a fake IP.
-	host, port, err := net.SplitHostPort(target.String())
-	if err != nil {
-		log.Errorf("error when split host port %v", err)
+	var targetHost string
+	if h.fakeDns != nil && h.fakeDns.IsFakeIP(target.IP) {
+		targetHost = h.fakeDns.QueryDomain(target.IP)
+	} else {
+		targetHost = target.IP.String()
 	}
-	var targetHost string = host
-	if h.fakeDns != nil {
-		if ip := net.ParseIP(host); ip != nil {
-			if h.fakeDns.IsFakeIP(ip) {
-				targetHost = h.fakeDns.QueryDomain(ip)
-			}
-		}
-	}
-	dest := fmt.Sprintf("%s:%s", targetHost, port)
+	dest := net.JoinHostPort(targetHost, strconv.Itoa(target.Port))
 
 	// Write target address.
 	tgt := sssocks.ParseAddr(dest)
