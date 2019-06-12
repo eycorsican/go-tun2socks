@@ -72,8 +72,17 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		}
 	}
 
-	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
-	recvErr := conn.(TCPConn).Receive(buf)
+	var buf []byte
+	var totlen = int(p.tot_len)
+	if p.tot_len == p.len {
+		buf = (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:totlen:totlen]
+	} else {
+		buf = NewBytes(totlen)
+		defer FreeBytes(buf)
+		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
+	}
+
+	recvErr := conn.(TCPConn).Receive(buf[:totlen])
 	if recvErr != nil {
 		if recvErr.(*lwipError).Code == LWIP_ERR_ABRT {
 			return C.ERR_ABRT
