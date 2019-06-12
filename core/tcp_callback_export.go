@@ -86,6 +86,9 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 			return C.ERR_CONN
 		} else if recvErr.(*lwipError).Code == LWIP_ERR_CLSD {
 			shouldFreePbuf = false
+			// lwip won't handle ERR_CLSD error for us, manually
+			// shuts down the rx side.
+			C.tcp_shutdown(tpcb, 1, 0)
 			return C.ERR_CLSD
 		}
 	}
