@@ -320,7 +320,6 @@ func (dev *winTapDev) Read(data []byte) (int, error) {
 
 			// discard IPv6 packets
 			if dev.rBuf[14]&0xf0 == 0x60 {
-				log.Printf("ipv6 packet")
 				continue
 			} else if dev.rBuf[14]&0xf0 == 0x40 {
 				if !dev.wInitiated {

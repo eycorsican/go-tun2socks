@@ -10,14 +10,11 @@ Tested and worked on macOS, Linux and Windows, iOS and Android are also supporte
 
 ```
                                                                           core.NewLWIPStack()
-                                                   Log process names               +
-                                                   Delay ICMP packets              |
-                                               Dynamically change routes           |
-                                                            |                      |
-                                                            |                      |                                    core.RegisterTCPConnHandler()
-                                                            |                      |           core.TCPConn
-                                                            |     core.Input()     |           core.UDPConn             core.RegisterUDPConnHandler()
-                                                            +                      +
+                                                                                  |
+                                                                                  |                                    core.RegisterTCPConnHandler()
+                                                                                  |           core.TCPConn
+                                                                 core.Input()     |           core.UDPConn             core.RegisterUDPConnHandler()
+                                                                                  +
                                  +-----------> TUN +----> Filter +-----------> lwIP stack +-----------------------> core.TCPConnHandler/core.UDPConnHandler
                                  |                               <-----------+                                                        +
                                  |                            core.RegisterOutputFn()                                                 |
@@ -58,8 +55,10 @@ Usage of tun2socks:
     	Enable DNS fallback over TCP (overrides the UDP proxy handler).
   -fakeDns
     	Enable fake DNS (SOCKS and Shadowsocks handler)
-  -gateway string
-    	The gateway adrress of your default network, set this to enable dynamic routing, and root/admin privileges may also required for using dynamic routing (V2Ray only)
+  -fakeDnsMaxIP string
+    	Maximum fake IP used by fake DNS (default "172.255.255.255")
+  -fakeDnsMinIP string
+    	Minimum fake IP used by fake DNS (default "172.255.0.0")
   -loglevel string
     	Logging level. (debug, info, warn, error, none) (default "info")
   -proxyCipher string
@@ -73,11 +72,11 @@ Usage of tun2socks:
   -sniffingType string
     	Enable domain sniffing for specific kind of traffic in v2ray (default "http,tls")
   -tunAddr string
-    	TUN interface address (default "240.0.0.2")
+    	TUN interface address (default "10.255.0.2")
   -tunDns string
-    	DNS resolvers for TUN interface (only need on Windows) (default "114.114.114.114,223.5.5.5")
+    	DNS resolvers for TUN interface (only need on Windows) (default "8.8.8.8,8.8.4.4")
   -tunGw string
-    	TUN interface gateway (default "240.0.0.1")
+    	TUN interface gateway (default "10.255.0.1")
   -tunMask string
     	TUN interface netmask, as for IPv6, it's the prefixlen (default "255.255.255.0")
   -tunName string
@@ -132,7 +131,7 @@ BUILD_TAGS="socks dnscache" make
 ## Run
 
 ```sh
-./build/tun2socks -tunName tun1 -tunAddr 240.0.0.2 -tunGw 240.0.0.1 -proxyType socks -proxyServer 1.2.3.4:1086
+./build/tun2socks -proxyServer 1.2.3.4:1086
 ```
 
 Note that the TUN device may have a different name, and it should be a different name on Windows unless you have renamed it, so make sure use `ifconfig`, `ipconfig` or `ip addr` to check it out.
@@ -156,7 +155,7 @@ route delete default
 Add our TUN interface as the default gateway:
 
 ```sh
-route add default 240.0.0.1
+route add default 10.255.0.1
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
@@ -167,11 +166,10 @@ route add 1.2.3.4/32 192.168.0.1
 
 ### Linux
 
-The program will not create the TUN device for you on Linux. You need to create the TUN device by yourself:
+The program will create the TUN device for you on Linux. But you still need to configure the address by yourself:
 
 ```sh
-ip tuntap add mode tun dev tun1
-ip addr add 240.0.0.1 dev tun1
+ip addr add 10.255.0.1/24 dev tun1
 ip link set dev tun1 up
 ```
 
@@ -184,7 +182,7 @@ ip route del default
 Add our TUN interface as the default gateway:
 
 ```sh
-ip route add default via 240.0.0.1
+ip route add default via 10.255.0.1
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
@@ -202,8 +200,7 @@ To create a TUN device on Windows, you need [Tap-windows](http://build.openvpn.n
 Add our TUN interface as the default gateway:
 
 ```sh
-# Using 240.0.0.1 is not allowed on Windows, we use 10.0.0.1 instead
-route add 0.0.0.0 mask 0.0.0.0 10.0.0.1 metric 6
+route add 0.0.0.0 mask 0.0.0.0 10.255.0.1 metric 6
 ```
 
 Add a route for your proxy server to bypass the TUN interface:
@@ -212,22 +209,9 @@ Add a route for your proxy server to bypass the TUN interface:
 route add 1.2.3.4 192.168.0.1 metric 5
 ```
 
-## A few notes for using V2Ray proxy handler
-- Using V2Ray proxy handler: `tun2socks -proxyType v2ray -vconfig config.json`
-- V2Ray proxy handler dials connections with a [V2Ray Instance](https://github.com/v2ray/v2ray-core/blob/master/functions.go)
-- Configuration file must in JSON format
-- Proxy server addresses in the configuration file should be IPs and not domains except your system DNS will match "direct" rules
-- Configuration file should not contain direct `domain` rules, since they cause infinitely looping requests
-- Dynamic routing happens prior to packets input to lwIP, the [V2Ray Router](https://github.com/v2ray/v2ray-core/blob/master/features/routing/router.go) is used to check if the IP packet matching "direct" tag, information available for the matching process are (protocol, destination ip, destination port)
-- To enable dynamic routing, just set the `-gateway` argument, for example: `tun2socks -proxyType v2ray -vconfig config.json -gateway 192.168.0.1`
-- The tag "direct" is hard coded to identify direct rules, which if dynamic routing is enabled, will indicate adding routes to the original gateway for the corresponding IP packets
-- Inbounds are not necessary
-
 ## TODO
 - Built-in routing rules and routing table management
 - Support ICMP packets forwarding
-- Make conn handlers [io.ReadWriteCloser](https://golang.org/pkg/io/#ReadWriteCloser)
-- Add Close() method for core.LWIPStack
 - Support TAP device in order to support IPv6 on Windows
 
 ## Development

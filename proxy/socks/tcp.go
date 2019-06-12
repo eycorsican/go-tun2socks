@@ -65,6 +65,7 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	if err != nil {
 		return err
 	}
+
 	go h.handleInput(conn, c)
 	go h.handleOutput(conn, c)
 
