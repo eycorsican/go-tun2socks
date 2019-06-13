@@ -48,6 +48,10 @@ func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 		udpConns.Store(connId, conn)
 	}
 
+	if p.tot_len != p.len {
+		panic("unexpected pbuf len")
+	}
+
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
 	conn.(UDPConn).ReceiveTo(buf, dstAddr)
 }
