@@ -40,7 +40,7 @@ func NewUDPHandler(proxyHandler core.UDPConnHandler, exceptionApps []string, sen
 	}
 }
 
-func (h *udpHandler) handleInput(conn core.UDPConn, pc net.PacketConn) {
+func (h *udpHandler) handleInput(conn core.UDPConn, pc *net.UDPConn) {
 	buf := core.NewBytes(core.BufSize)
 
 	defer func() {
@@ -50,7 +50,7 @@ func (h *udpHandler) handleInput(conn core.UDPConn, pc net.PacketConn) {
 
 	for {
 		pc.SetDeadline(time.Now().Add(h.timeout))
-		n, addr, err := pc.ReadFrom(buf)
+		n, addr, err := pc.ReadFromUDP(buf)
 		if err != nil {
 			return
 		}
@@ -62,7 +62,7 @@ func (h *udpHandler) handleInput(conn core.UDPConn, pc net.PacketConn) {
 	}
 }
 
-func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	localHost, localPortStr, _ := net.SplitHostPort(conn.LocalAddr().String())
 	localPortInt, _ := strconv.Atoi(localPortStr)
 	cmd, err := lsof.GetCommandNameBySocket("udp", localHost, uint16(localPortInt))
@@ -93,7 +93,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	}
 }
 
-func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	h.Lock()
 	defer h.Unlock()
 

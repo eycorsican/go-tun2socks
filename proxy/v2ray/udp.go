@@ -25,7 +25,7 @@ type udpConnEntry struct {
 	// all data receive from V2Ray are coming from the
 	// same remote host, i.e. the `target` that passed
 	// to `Connect`.
-	target net.Addr
+	target *net.UDPAddr
 
 	updater vsignal.ActivityUpdater
 }
@@ -76,7 +76,7 @@ func NewUDPHandler(ctx context.Context, instance *vcore.Instance, timeout time.D
 	}
 }
 
-func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
+func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	if target == nil {
 		return errors.New("nil target is not allowed")
 	}
@@ -108,7 +108,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
 	return nil
 }
 
-func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	h.Lock()
 	c, ok := h.conns[conn]
 	h.Unlock()

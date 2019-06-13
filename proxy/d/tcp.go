@@ -70,7 +70,7 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn) {
 	cls()
 }
 
-func (h *tcpHandler) Handle(conn net.Conn, target net.Addr) error {
+func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	localHost, localPortStr, _ := net.SplitHostPort(conn.LocalAddr().String())
 	localPortInt, _ := strconv.Atoi(localPortStr)
 	cmd, err := lsof.GetCommandNameBySocket("tcp", localHost, uint16(localPortInt))

@@ -67,15 +67,15 @@ type TCPConn interface {
 // should be handled by a registered UDP proxy handler.
 type UDPConn interface {
 	// LocalAddr returns the local client network address.
-	LocalAddr() net.Addr
+	LocalAddr() *net.UDPAddr
 
 	// ReceiveTo will be called when data arrives from TUN, and the received
 	// data should be sent to addr.
-	ReceiveTo(data []byte, addr net.Addr) error
+	ReceiveTo(data []byte, addr *net.UDPAddr) error
 
 	// WriteFrom writes data to TUN, addr will be set as source address of
 	// UDP packets that output to TUN.
-	WriteFrom(data []byte, addr net.Addr) (int, error)
+	WriteFrom(data []byte, addr *net.UDPAddr) (int, error)
 
 	// Close closes the connection.
 	Close() error

@@ -26,18 +26,14 @@ func NewUDPHandler() core.UDPConnHandler {
 	return &udpHandler{}
 }
 
-func (h *udpHandler) Connect(conn core.UDPConn, target net.Addr) error {
-	udpAddr, ok := target.(*net.UDPAddr)
-	if !ok {
-		return errors.New("Unsupported address type")
-	}
+func (h *udpHandler) Connect(conn core.UDPConn, udpAddr *net.UDPAddr) error {
 	if udpAddr.Port != dns.COMMON_DNS_PORT {
 		return errors.New("Cannot handle non-DNS packet")
 	}
 	return nil
 }
 
-func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr net.Addr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	if len(data) < dnsHeaderLength {
 		return errors.New("Received malformed DNS query")
 	}

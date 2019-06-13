@@ -60,8 +60,8 @@ type tcpConn struct {
 
 	pcb           *C.struct_tcp_pcb
 	handler       TCPConnHandler
-	remoteAddr    net.Addr
-	localAddr     net.Addr
+	remoteAddr    *net.TCPAddr
+	localAddr     *net.TCPAddr
 	connKeyArg    unsafe.Pointer
 	connKey       uint32
 	canWrite      *sync.Cond // Condition variable to implement TCP backpressure.
@@ -109,7 +109,7 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 	conn.state = tcpConnecting
 	conn.Unlock()
 	go func() {
-		err := handler.Handle(TCPConn(conn), conn.RemoteAddr())
+		err := handler.Handle(TCPConn(conn), conn.remoteAddr)
 		if err != nil {
 			conn.Abort()
 		} else {

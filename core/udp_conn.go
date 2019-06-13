@@ -24,7 +24,7 @@ const (
 
 type udpPacket struct {
 	data []byte
-	addr net.Addr
+	addr *net.UDPAddr
 }
 
 type udpConn struct {
@@ -32,14 +32,14 @@ type udpConn struct {
 
 	pcb       *C.struct_udp_pcb
 	handler   UDPConnHandler
-	localAddr net.Addr
+	localAddr *net.UDPAddr
 	localIP   C.ip_addr_t
 	localPort C.u16_t
 	state     udpConnState
 	pending   chan *udpPacket
 }
 
-func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr_t, localPort C.u16_t, localAddr, remoteAddr net.Addr) (UDPConn, error) {
+func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr_t, localPort C.u16_t, localAddr, remoteAddr *net.UDPAddr) (UDPConn, error) {
 	conn := &udpConn{
 		handler:   handler,
 		pcb:       pcb,
@@ -81,7 +81,7 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 	return conn, nil
 }
 
-func (conn *udpConn) LocalAddr() net.Addr {
+func (conn *udpConn) LocalAddr() *net.UDPAddr {
 	return conn.localAddr
 }
 
@@ -106,7 +106,7 @@ func (conn *udpConn) isConnecting() bool {
 	return conn.state == udpConnecting
 }
 
-func (conn *udpConn) ReceiveTo(data []byte, addr net.Addr) error {
+func (conn *udpConn) ReceiveTo(data []byte, addr *net.UDPAddr) error {
 	if conn.isConnecting() {
 		pkt := &udpPacket{data: append([]byte(nil), data...), addr: addr}
 		select {
@@ -126,18 +126,18 @@ func (conn *udpConn) ReceiveTo(data []byte, addr net.Addr) error {
 	return nil
 }
 
-func (conn *udpConn) WriteFrom(data []byte, addr net.Addr) (int, error) {
+func (conn *udpConn) WriteFrom(data []byte, addr *net.UDPAddr) (int, error) {
 	if err := conn.checkState(); err != nil {
 		return 0, err
 	}
 	// FIXME any memory leaks?
 	cremoteIP := C.struct_ip_addr{}
-	if err := ipAddrATON(addr.(*net.UDPAddr).IP.String(), &cremoteIP); err != nil {
+	if err := ipAddrATON(addr.IP.String(), &cremoteIP); err != nil {
 		return 0, err
 	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
 	defer C.pbuf_free(buf)
-	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &cremoteIP, C.u16_t(addr.(*net.UDPAddr).Port))
+	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &cremoteIP, C.u16_t(addr.Port))
 	return len(data), nil
 }
 
