@@ -158,10 +158,14 @@ func (conn *tcpConn) receiveCheck() error {
 	case tcpClosing:
 		return NewLWIPError(LWIP_ERR_CLSD)
 	case tcpAborting:
+		fallthrough
+	case tcpClosed:
+		fallthrough
+	case tcpErrored:
 		conn.abortInternal()
 		return NewLWIPError(LWIP_ERR_ABRT)
 	default:
-		return NewLWIPError(LWIP_ERR_CONN)
+		panic("unexpected error")
 	}
 	return nil
 }
@@ -235,8 +239,7 @@ func (conn *tcpConn) writeCheck() error {
 	case tcpAborting:
 		return io.ErrClosedPipe
 	default:
-		// It's not likely we will get here.
-		return fmt.Errorf("connection %v->%v encountered an unknown error (%v)", conn.LocalAddr(), conn.RemoteAddr(), conn.state)
+		panic("unexpected error")
 	}
 	return nil
 }
