@@ -30,7 +30,7 @@ func init() {
 		proxyHost := proxyAddr.IP.String()
 		proxyPort := uint16(proxyAddr.Port)
 
-		proxyTCPHandler := socks.NewTCPHandler(proxyHost, proxyPort, fakeDns)
+		proxyTCPHandler := socks.NewTCPHandler(proxyHost, proxyPort, fakeDns, nil)
 		proxyUDPHandler := socks.NewUDPHandler(proxyHost, proxyPort, *args.UdpTimeout, dnsCache, fakeDns)
 
 		sendThrough, err := net.ResolveTCPAddr("tcp", *args.ExceptionSendThrough)

@@ -13,6 +13,7 @@ import (
 	"github.com/eycorsican/go-tun2socks/common/dns"
 	"github.com/eycorsican/go-tun2socks/common/log"
 	_ "github.com/eycorsican/go-tun2socks/common/log/simple" // Register a simple logger.
+	"github.com/eycorsican/go-tun2socks/common/stats"
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/eycorsican/go-tun2socks/filter"
 	"github.com/eycorsican/go-tun2socks/tun"
@@ -102,6 +103,8 @@ var lwipWriter io.Writer
 var dnsCache dns.DnsCache
 
 var fakeDns dns.FakeDns
+
+var sessionStater stats.SessionStater
 
 const (
 	MTU = 1500
