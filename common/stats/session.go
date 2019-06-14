@@ -78,6 +78,7 @@ func (s *simpleSessionStater) printSessions() {
 		total += 1
 		return true
 	}
+	fmt.Fprintf(w, "Process Name\tNetwork\tDuration\tLocal Addr\tRemote Addr\tUpload Bytes\tDownload Bytes\t\n")
 	s.sessions.Range(printSession)
 	fmt.Fprintf(w, "total %v\n", total)
 	w.Flush()
