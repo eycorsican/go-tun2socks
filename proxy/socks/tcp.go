@@ -11,6 +11,7 @@ import (
 
 	"github.com/eycorsican/go-tun2socks/common/dns"
 	"github.com/eycorsican/go-tun2socks/common/log"
+	"github.com/eycorsican/go-tun2socks/common/lsof"
 	"github.com/eycorsican/go-tun2socks/common/stats"
 	"github.com/eycorsican/go-tun2socks/core"
 )
@@ -154,9 +155,19 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 		return err
 	}
 
+	var process string
 	var sess *stats.Session
 	if h.sessionStater != nil {
+		// Get name of the process.
+		localHost, localPortStr, _ := net.SplitHostPort(conn.LocalAddr().String())
+		localPortInt, _ := strconv.Atoi(localPortStr)
+		process, err = lsof.GetCommandNameBySocket(target.Network(), localHost, uint16(localPortInt))
+		if err != nil {
+			process = "unknown process"
+		}
+
 		sess = &stats.Session{
+			process,
 			target.Network(),
 			conn.LocalAddr().String(),
 			dest,
@@ -169,7 +180,7 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 
 	go h.relay(conn, c, sess)
 
-	log.Access("proxy", target.Network(), conn.LocalAddr().String(), dest)
+	log.Access(process, "proxy", target.Network(), conn.LocalAddr().String(), dest)
 
 	return nil
 }

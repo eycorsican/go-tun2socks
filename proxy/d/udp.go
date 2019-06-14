@@ -85,7 +85,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 
 		go h.handleInput(conn, pc)
 
-		log.Access("direct", target.Network(), conn.LocalAddr().String(), target.String())
+		log.Access(cmd, "direct", target.Network(), conn.LocalAddr().String(), target.String())
 
 		return nil
 	} else {

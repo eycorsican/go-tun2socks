@@ -9,9 +9,13 @@ import (
 	"syscall"
 	"text/tabwriter"
 	"time"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 type Session struct {
+	ProcessName   string
 	Network       string
 	LocalAddr     string
 	RemoteAddr    string
@@ -59,15 +63,17 @@ func (s *simpleSessionStater) listenEvent() {
 func (s *simpleSessionStater) printSessions() {
 	total := 0
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	p := message.NewPrinter(language.English)
 	printSession := func(key, value interface{}) bool {
 		sess := value.(*Session)
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t\n",
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t\n",
+			sess.ProcessName,
 			sess.Network,
 			time.Now().Sub(sess.SessionStart),
 			sess.LocalAddr,
 			sess.RemoteAddr,
-			atomic.LoadInt64(&sess.UploadBytes),
-			atomic.LoadInt64(&sess.DownloadBytes),
+			p.Sprintf("%d", atomic.LoadInt64(&sess.UploadBytes)),
+			p.Sprintf("%d", atomic.LoadInt64(&sess.DownloadBytes)),
 		)
 		total += 1
 		return true

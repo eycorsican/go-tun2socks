@@ -87,7 +87,7 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 
 		go h.relay(conn, rc)
 
-		log.Access("direct", target.Network(), conn.LocalAddr().String(), target.String())
+		log.Access(cmd, "direct", target.Network(), conn.LocalAddr().String(), target.String())
 
 		return nil
 	} else {
