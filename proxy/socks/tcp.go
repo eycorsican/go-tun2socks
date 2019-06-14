@@ -114,8 +114,8 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 		} else {
 			_, err = io.Copy(rhs, lhs)
 		}
-		if err != nil && err != io.EOF {
-			cls(dirUplink, true) // interrupt the conn if the error is not EOF
+		if err != nil {
+			cls(dirUplink, true) // interrupt the conn if the error is not nil (not EOF)
 		} else {
 			cls(dirUplink, false) // half close uplink direction of the TCP conn if possible
 		}
@@ -128,7 +128,7 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 	} else {
 		_, err = io.Copy(rhs, lhs)
 	}
-	if err != nil && err != io.EOF {
+	if err != nil {
 		cls(dirDownlink, true)
 	} else {
 		cls(dirDownlink, false)
