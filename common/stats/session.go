@@ -1,14 +1,14 @@
 package stats
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"text/tabwriter"
 	"time"
-
-	"github.com/eycorsican/go-tun2socks/common/log"
 )
 
 type Session struct {
@@ -58,9 +58,10 @@ func (s *simpleSessionStater) listenEvent() {
 
 func (s *simpleSessionStater) printSessions() {
 	total := 0
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	printSession := func(key, value interface{}) bool {
 		sess := value.(*Session)
-		log.Infof("%v %v %v <-> %v %v %v",
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t\n",
 			sess.Network,
 			time.Now().Sub(sess.SessionStart),
 			sess.LocalAddr,
@@ -71,8 +72,7 @@ func (s *simpleSessionStater) printSessions() {
 		total += 1
 		return true
 	}
-	log.Infof("")
 	s.sessions.Range(printSession)
-	log.Infof("total %v", total)
-	log.Infof("")
+	fmt.Fprintf(w, "total %v\n", total)
+	w.Flush()
 }
