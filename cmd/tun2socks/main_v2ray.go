@@ -18,7 +18,6 @@ import (
 )
 
 func init() {
-	args.addFlag(fApplog)
 	args.addFlag(fUdpTimeout)
 
 	args.VConfig = flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")

@@ -42,7 +42,6 @@ type CmdArgs struct {
 	TunDns               *string
 	ProxyType            *string
 	VConfig              *string
-	Gateway              *string
 	SniffingType         *string
 	ProxyServer          *string
 	ProxyHost            *string
@@ -51,7 +50,6 @@ type CmdArgs struct {
 	ProxyPassword        *string
 	DelayICMP            *int
 	UdpTimeout           *time.Duration
-	Applog               *bool
 	DisableDnsCache      *bool
 	DnsFallback          *bool
 	LogLevel             *string
@@ -67,7 +65,6 @@ type cmdFlag uint
 const (
 	fProxyServer cmdFlag = iota
 	fUdpTimeout
-	fApplog
 )
 
 var flagCreaters = map[cmdFlag]func(){
@@ -79,11 +76,6 @@ var flagCreaters = map[cmdFlag]func(){
 	fUdpTimeout: func() {
 		if args.UdpTimeout == nil {
 			args.UdpTimeout = flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in SOCKS and Shadowsocks")
-		}
-	},
-	fApplog: func() {
-		if args.Applog == nil {
-			args.Applog = flag.Bool("applog", false, "Enable app logging (V2Ray, Shadowsocks and SOCKS5 handler)")
 		}
 	},
 }
@@ -165,12 +157,6 @@ func main() {
 	if *args.DelayICMP > 0 {
 		log.Infof("ICMP packets will be delayed for %dms", *args.DelayICMP)
 		lwipWriter = filter.NewICMPFilter(lwipWriter, *args.DelayICMP).(io.Writer)
-	}
-
-	// Wrap a writer to print out processes the creating network connections.
-	if args.Applog != nil && *args.Applog {
-		log.Infof("App logging is enabled")
-		lwipWriter = filter.NewApplogFilter(lwipWriter).(io.Writer)
 	}
 
 	// Register TCP and UDP handlers to handle accepted connections.
