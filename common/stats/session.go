@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -61,11 +62,23 @@ func (s *simpleSessionStater) listenEvent() {
 }
 
 func (s *simpleSessionStater) printSessions() {
-	total := 0
+	// Make a snapshot.
+	var sessions []Session
+	s.sessions.Range(func(key, value interface{}) bool {
+		sess := value.(*Session)
+		sessions = append(sessions, *sess)
+		return true
+	})
+
+	// Sort by session start time.
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].SessionStart.Sub(sessions[j].SessionStart) < 0
+	})
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	p := message.NewPrinter(language.English)
-	printSession := func(key, value interface{}) bool {
-		sess := value.(*Session)
+	fmt.Fprintf(w, "Process Name\tNetwork\tDuration\tLocal Addr\tRemote Addr\tUpload Bytes\tDownload Bytes\t\n")
+	for _, sess := range sessions {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t\n",
 			sess.ProcessName,
 			sess.Network,
@@ -75,11 +88,7 @@ func (s *simpleSessionStater) printSessions() {
 			p.Sprintf("%d", atomic.LoadInt64(&sess.UploadBytes)),
 			p.Sprintf("%d", atomic.LoadInt64(&sess.DownloadBytes)),
 		)
-		total += 1
-		return true
 	}
-	fmt.Fprintf(w, "Process Name\tNetwork\tDuration\tLocal Addr\tRemote Addr\tUpload Bytes\tDownload Bytes\t\n")
-	s.sessions.Range(printSession)
-	fmt.Fprintf(w, "total %v\n", total)
+	fmt.Fprintf(w, "total %v\n", len(sessions))
 	w.Flush()
 }
