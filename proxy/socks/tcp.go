@@ -87,10 +87,10 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 	var err error
 	upCh := make(chan struct{})
 
-	cls := func(dir direction) {
+	cls := func(dir direction, interrupt bool) {
 		lhsDConn, lhsOk := lhs.(duplexConn)
 		rhsDConn, rhsOk := rhs.(duplexConn)
-		if lhsOk && rhsOk {
+		if !interrupt && lhsOk && rhsOk {
 			switch dir {
 			case dirUplink:
 				lhsDConn.CloseRead()
@@ -107,6 +107,7 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 		}
 	}
 
+	// Uplink
 	go func() {
 		if h.sessionStater != nil && sess != nil {
 			_, err = statsCopy(rhs, lhs, sess, dirUplink)
@@ -114,18 +115,23 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 			_, err = io.Copy(rhs, lhs)
 		}
 		if err != nil && err != io.EOF {
-			cls(dirUplink)
+			cls(dirUplink, true) // interrupt the conn if the error is not EOF
+		} else {
+			cls(dirUplink, false) // half close uplink direction of the TCP conn if possible
 		}
 		upCh <- struct{}{}
 	}()
 
+	// Downlink
 	if h.sessionStater != nil && sess != nil {
 		_, err = statsCopy(lhs, rhs, sess, dirDownlink)
 	} else {
 		_, err = io.Copy(rhs, lhs)
 	}
 	if err != nil && err != io.EOF {
-		cls(dirDownlink)
+		cls(dirDownlink, true)
+	} else {
+		cls(dirDownlink, false)
 	}
 
 	<-upCh // Wait for uplink done.
