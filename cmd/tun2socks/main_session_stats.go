@@ -1,3 +1,5 @@
+// +build stats
+
 package main
 
 import (
@@ -6,6 +8,10 @@ import (
 
 func init() {
 	addPostFlagsInitFn(func() {
-		sessionStater = stats.NewSimpleSessionStater()
+		if *args.Stats {
+			sessionStater = stats.NewSimpleSessionStater()
+		} else {
+			sessionStater = nil
+		}
 	})
 }

@@ -58,6 +58,7 @@ type CmdArgs struct {
 	FakeDnsMaxIP         *string
 	ExceptionApps        *string
 	ExceptionSendThrough *string
+	Stats                *bool
 }
 
 type cmdFlag uint
@@ -65,6 +66,7 @@ type cmdFlag uint
 const (
 	fProxyServer cmdFlag = iota
 	fUdpTimeout
+	fStats
 )
 
 var flagCreaters = map[cmdFlag]func(){
@@ -76,6 +78,11 @@ var flagCreaters = map[cmdFlag]func(){
 	fUdpTimeout: func() {
 		if args.UdpTimeout == nil {
 			args.UdpTimeout = flag.Duration("udpTimeout", 1*time.Minute, "Set timeout for UDP proxy connections in SOCKS and Shadowsocks")
+		}
+	},
+	fStats: func() {
+		if args.Stats == nil {
+			args.Stats = flag.Bool("stats", false, "Enable statistics, send signal SIGUSR1 to print the statistics (SOCKS)")
 		}
 	},
 }

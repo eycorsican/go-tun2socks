@@ -13,6 +13,7 @@ import (
 func init() {
 	args.addFlag(fProxyServer)
 	args.addFlag(fUdpTimeout)
+	args.addFlag(fStats)
 
 	registerHandlerCreater("socks", func() {
 		// Verify proxy server address.
