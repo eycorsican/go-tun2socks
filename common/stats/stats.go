@@ -7,6 +7,7 @@ import (
 
 type SessionStater interface {
 	AddSession(key interface{}, session *Session)
+	GetSession(key interface{}) *Session
 	RemoveSession(key interface{})
 }
 

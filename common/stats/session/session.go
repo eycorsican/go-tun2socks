@@ -33,6 +33,13 @@ func (s *simpleSessionStater) AddSession(key interface{}, session *stats.Session
 	s.sessions.Store(key, session)
 }
 
+func (s *simpleSessionStater) GetSession(key interface{}) *stats.Session {
+	if sess, ok := s.sessions.Load(key); ok {
+		return sess.(*stats.Session)
+	}
+	return nil
+}
+
 func (s *simpleSessionStater) RemoveSession(key interface{}) {
 	if sess, ok := s.sessions.Load(key); ok {
 		s.completedSessions = append(s.completedSessions, *(sess.(*stats.Session)))
