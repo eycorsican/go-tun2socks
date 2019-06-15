@@ -126,7 +126,7 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 	if h.sessionStater != nil && sess != nil {
 		_, err = statsCopy(lhs, rhs, sess, dirDownlink)
 	} else {
-		_, err = io.Copy(rhs, lhs)
+		_, err = io.Copy(lhs, rhs)
 	}
 	if err != nil {
 		cls(dirDownlink, true)
