@@ -18,7 +18,7 @@ func init() {
 	args.addFlag(fUdpTimeout)
 	args.addFlag(fStats)
 
-	args.ExceptionApps = flag.String("exceptionApps", "", "Exception app list separated by commas")
+	args.ExceptionApps = flag.String("exceptionApps", "", "A list of exception apps separated by commas")
 	args.ExceptionSendThrough = flag.String("exceptionSendThrough", "192.168.1.101:0", "Exception send through address")
 
 	registerHandlerCreater("d", func() {

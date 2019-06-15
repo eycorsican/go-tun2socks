@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	args.DisableDnsCache = flag.Bool("disableDNSCache", false, "Disable DNS cache (SOCKS5 and Shadowsocks handler)")
+	args.DisableDnsCache = flag.Bool("disableDNSCache", false, "Disable DNS cache")
 
 	addPostFlagsInitFn(func() {
 		if *args.DisableDnsCache {
