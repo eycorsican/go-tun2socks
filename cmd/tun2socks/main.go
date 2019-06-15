@@ -82,7 +82,7 @@ var flagCreaters = map[cmdFlag]func(){
 	},
 	fStats: func() {
 		if args.Stats == nil {
-			args.Stats = flag.Bool("stats", false, "Enable statistics, send signal SIGUSR1 to print the statistics (SOCKS)")
+			args.Stats = flag.Bool("stats", false, "Enable statistics, open http://localhost:6001/stats/session/plain in your browser to view statistics")
 		}
 	},
 }
