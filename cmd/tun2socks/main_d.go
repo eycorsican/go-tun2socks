@@ -16,6 +16,7 @@ import (
 func init() {
 	args.addFlag(fProxyServer)
 	args.addFlag(fUdpTimeout)
+	args.addFlag(fStats)
 
 	args.ExceptionApps = flag.String("exceptionApps", "", "Exception app list separated by commas")
 	args.ExceptionSendThrough = flag.String("exceptionSendThrough", "192.168.1.101:0", "Exception send through address")
@@ -29,7 +30,7 @@ func init() {
 		proxyHost := proxyAddr.IP.String()
 		proxyPort := uint16(proxyAddr.Port)
 
-		proxyTCPHandler := socks.NewTCPHandler(proxyHost, proxyPort, fakeDns, nil)
+		proxyTCPHandler := socks.NewTCPHandler(proxyHost, proxyPort, fakeDns, sessionStater)
 		proxyUDPHandler := socks.NewUDPHandler(proxyHost, proxyPort, *args.UdpTimeout, dnsCache, fakeDns)
 
 		sendThrough, err := net.ResolveTCPAddr("tcp", *args.ExceptionSendThrough)
