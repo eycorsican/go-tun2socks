@@ -1,4 +1,4 @@
-package stats
+package session
 
 import (
 	"fmt"
@@ -13,37 +13,21 @@ import (
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
+
+	"github.com/eycorsican/go-tun2socks/common/stats"
 )
-
-type Session struct {
-	ProcessName   string
-	Network       string
-	LocalAddr     string
-	RemoteAddr    string
-	UploadBytes   int64
-	DownloadBytes int64
-	SessionStart  time.Time
-}
-
-func (s *Session) AddUploadBytes(n int64) {
-	atomic.AddInt64(&s.UploadBytes, n)
-}
-
-func (s *Session) AddDownloadBytes(n int64) {
-	atomic.AddInt64(&s.DownloadBytes, n)
-}
 
 type simpleSessionStater struct {
 	sessions sync.Map
 }
 
-func NewSimpleSessionStater() SessionStater {
+func NewSimpleSessionStater() stats.SessionStater {
 	s := &simpleSessionStater{}
 	go s.listenEvent()
 	return s
 }
 
-func (s *simpleSessionStater) AddSession(key interface{}, session *Session) {
+func (s *simpleSessionStater) AddSession(key interface{}, session *stats.Session) {
 	s.sessions.Store(key, session)
 }
 
@@ -63,9 +47,9 @@ func (s *simpleSessionStater) listenEvent() {
 
 func (s *simpleSessionStater) printSessions() {
 	// Make a snapshot.
-	var sessions []Session
+	var sessions []stats.Session
 	s.sessions.Range(func(key, value interface{}) bool {
-		sess := value.(*Session)
+		sess := value.(*stats.Session)
 		sessions = append(sessions, *sess)
 		return true
 	})
