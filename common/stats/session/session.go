@@ -2,6 +2,7 @@ package session
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"sync"
@@ -15,8 +16,11 @@ import (
 	"github.com/eycorsican/go-tun2socks/common/stats"
 )
 
+const maxCompletedSessions = 50
+
 type simpleSessionStater struct {
-	sessions sync.Map
+	sessions          sync.Map
+	completedSessions []stats.Session
 }
 
 func NewSimpleSessionStater() stats.SessionStater {
@@ -30,6 +34,12 @@ func (s *simpleSessionStater) AddSession(key interface{}, session *stats.Session
 }
 
 func (s *simpleSessionStater) RemoveSession(key interface{}) {
+	if sess, ok := s.sessions.Load(key); ok {
+		s.completedSessions = append(s.completedSessions, *(sess.(*stats.Session)))
+		if len(s.completedSessions) > maxCompletedSessions {
+			s.completedSessions = s.completedSessions[1:]
+		}
+	}
 	s.sessions.Delete(key)
 }
 
@@ -49,21 +59,28 @@ func (s *simpleSessionStater) listenEvent() {
 			return sessions[i].SessionStart.Sub(sessions[j].SessionStart) < 0
 		})
 
-		w := tabwriter.NewWriter(respw, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
 		p := message.NewPrinter(language.English)
-		fmt.Fprintf(w, "Process Name\tNetwork\tDuration\tLocal Addr\tRemote Addr\tUpload Bytes\tDownload Bytes\t\n")
-		for _, sess := range sessions {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t\n",
-				sess.ProcessName,
-				sess.Network,
-				time.Now().Sub(sess.SessionStart),
-				sess.LocalAddr,
-				sess.RemoteAddr,
-				p.Sprintf("%d", atomic.LoadInt64(&sess.UploadBytes)),
-				p.Sprintf("%d", atomic.LoadInt64(&sess.DownloadBytes)),
-			)
+		tablePrint := func(w io.Writer, sessions []stats.Session) {
+			fmt.Fprintf(w, "Process Name\tNetwork\tDuration\tLocal Addr\tRemote Addr\tUpload Bytes\tDownload Bytes\t\n")
+			for _, sess := range sessions {
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t\n",
+					sess.ProcessName,
+					sess.Network,
+					time.Now().Sub(sess.SessionStart),
+					sess.LocalAddr,
+					sess.RemoteAddr,
+					p.Sprintf("%d", atomic.LoadInt64(&sess.UploadBytes)),
+					p.Sprintf("%d", atomic.LoadInt64(&sess.DownloadBytes)),
+				)
+			}
 		}
-		fmt.Fprintf(w, "total %v\n", len(sessions))
+
+		w := tabwriter.NewWriter(respw, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
+		fmt.Fprintf(w, "Active sessions %d\n", len(sessions))
+		tablePrint(w, sessions)
+		fmt.Fprintf(w, "\n\n")
+		fmt.Fprintf(w, "Recently completed sessions %d\n", len(s.completedSessions))
+		tablePrint(w, s.completedSessions)
 		w.Flush()
 	}
 	http.HandleFunc("/stats/session/plain", sessionStatsHandler)
