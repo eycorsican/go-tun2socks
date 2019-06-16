@@ -6,6 +6,7 @@ package core
 */
 import "C"
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -49,7 +50,7 @@ func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	}
 
 	if p.tot_len != p.len {
-		panic("unexpected pbuf len")
+		panic(fmt.Sprintf("unexpected pbuf len: %v != %v", p.tot_len, p.len))
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:int(p.tot_len):int(p.tot_len)]
