@@ -152,15 +152,15 @@ func (conn *tcpConn) receiveCheck() error {
 	case tcpNewConn:
 		fallthrough
 	case tcpConnecting:
+		fallthrough
+	case tcpAborting:
+		fallthrough
+	case tcpClosed:
 		return NewLWIPError(LWIP_ERR_CONN)
 	case tcpReceiveClosed:
 		fallthrough
 	case tcpClosing:
 		return NewLWIPError(LWIP_ERR_CLSD)
-	case tcpAborting:
-		fallthrough
-	case tcpClosed:
-		fallthrough
 	case tcpErrored:
 		conn.abortInternal()
 		return NewLWIPError(LWIP_ERR_ABRT)
