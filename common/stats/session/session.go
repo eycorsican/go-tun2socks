@@ -13,6 +13,7 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
+	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/common/stats"
 )
 
@@ -21,37 +22,15 @@ const maxCompletedSessions = 50
 type simpleSessionStater struct {
 	sessions          sync.Map
 	completedSessions []stats.Session
+	server            *http.Server
 }
 
 func NewSimpleSessionStater() stats.SessionStater {
-	s := &simpleSessionStater{}
-	go s.listenEvent()
-	return s
+	return &simpleSessionStater{}
 }
 
-func (s *simpleSessionStater) AddSession(key interface{}, session *stats.Session) {
-	s.sessions.Store(key, session)
-}
-
-func (s *simpleSessionStater) GetSession(key interface{}) *stats.Session {
-	if sess, ok := s.sessions.Load(key); ok {
-		return sess.(*stats.Session)
-	}
-	return nil
-}
-
-func (s *simpleSessionStater) RemoveSession(key interface{}) {
-	if sess, ok := s.sessions.Load(key); ok {
-		s.completedSessions = append(s.completedSessions, *(sess.(*stats.Session)))
-		if len(s.completedSessions) > maxCompletedSessions {
-			s.completedSessions = s.completedSessions[1:]
-		}
-	}
-	s.sessions.Delete(key)
-}
-
-func (s *simpleSessionStater) listenEvent() {
-	// FIXME stop the server
+func (s *simpleSessionStater) Start() error {
+	log.Infof("Start session stater.")
 	sessionStatsHandler := func(respw http.ResponseWriter, req *http.Request) {
 		// Make a snapshot.
 		var sessions []stats.Session
@@ -91,5 +70,36 @@ func (s *simpleSessionStater) listenEvent() {
 		w.Flush()
 	}
 	http.HandleFunc("/stats/session/plain", sessionStatsHandler)
-	http.ListenAndServe("127.0.0.1:6001", nil)
+	server := &http.Server{Addr: "127.0.0.1:6001"}
+	go func() {
+		s.server.ListenAndServe()
+	}()
+	s.server = server
+	return nil
+}
+
+func (s *simpleSessionStater) Stop() error {
+	log.Infof("Stop session stater.")
+	return s.server.Close()
+}
+
+func (s *simpleSessionStater) AddSession(key interface{}, session *stats.Session) {
+	s.sessions.Store(key, session)
+}
+
+func (s *simpleSessionStater) GetSession(key interface{}) *stats.Session {
+	if sess, ok := s.sessions.Load(key); ok {
+		return sess.(*stats.Session)
+	}
+	return nil
+}
+
+func (s *simpleSessionStater) RemoveSession(key interface{}) {
+	if sess, ok := s.sessions.Load(key); ok {
+		s.completedSessions = append(s.completedSessions, *(sess.(*stats.Session)))
+		if len(s.completedSessions) > maxCompletedSessions {
+			s.completedSessions = s.completedSessions[1:]
+		}
+	}
+	s.sessions.Delete(key)
 }

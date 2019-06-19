@@ -6,6 +6,8 @@ import (
 )
 
 type SessionStater interface {
+	Start() error
+	Stop() error
 	AddSession(key interface{}, session *Session)
 	GetSession(key interface{}) *Session
 	RemoveSession(key interface{})

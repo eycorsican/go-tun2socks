@@ -201,4 +201,8 @@ func main() {
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)
 	<-osSignals
+
+	if sessionStater != nil {
+		sessionStater.Stop()
+	}
 }
