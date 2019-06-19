@@ -69,8 +69,9 @@ func (s *simpleSessionStater) Start() error {
 		tablePrint(w, s.completedSessions)
 		w.Flush()
 	}
-	http.HandleFunc("/stats/session/plain", sessionStatsHandler)
-	server := &http.Server{Addr: "127.0.0.1:6001"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/stats/session/plain", sessionStatsHandler)
+	server := &http.Server{Addr: "127.0.0.1:6001", Handler: mux}
 	go func() {
 		s.server.ListenAndServe()
 	}()
