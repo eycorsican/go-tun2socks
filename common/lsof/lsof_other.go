@@ -1,5 +1,4 @@
-// +build !darwin ios
-// +build !windows
+// +build ios android
 
 package lsof
 
