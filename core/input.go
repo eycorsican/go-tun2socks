@@ -13,6 +13,7 @@ input(struct pbuf *p)
 */
 import "C"
 import (
+	"encoding/binary"
 	"errors"
 	"unsafe"
 )
@@ -53,6 +54,19 @@ func moreFrags(ipv ipver, p []byte) bool {
 	return false
 }
 
+func fragOffset(ipv ipver, p []byte) uint16 {
+	switch ipv {
+	case ipv4:
+		return binary.BigEndian.Uint16(p[6:8]) & 0x1fff
+	case ipv6:
+		// FIXME Just too lazy to implement this for IPv6, for now
+		// returning a value greater than 0 simply indicate do the
+		// copy anyway.
+		return 1
+	}
+	return 0
+}
+
 func peekNextProto(ipv ipver, p []byte) (proto, error) {
 	switch ipv {
 	case ipv4:
@@ -90,7 +104,7 @@ func Input(pkt []byte) (int, error) {
 
 	var buf *C.struct_pbuf
 
-	if nextProto == proto_udp && !moreFrags(ipv, pkt) {
+	if nextProto == proto_udp && (!moreFrags(ipv, pkt) || fragOffset(ipv, pkt) > 0) {
 		// Copying data is not necessary for unfragmented UDP packets, and we would like to
 		// have all data in one pbuf.
 		buf = C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_REF)
