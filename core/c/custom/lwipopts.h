@@ -60,6 +60,7 @@
 #define LWIP_IPV6 1
 #define LWIP_IPV6_MLD 0
 #define LWIP_IPV6_AUTOCONFIG 1
+#define LWIP_TCP_KEEPALIVE 1
 
 // disable checksum checks
 #define CHECKSUM_CHECK_IP 0

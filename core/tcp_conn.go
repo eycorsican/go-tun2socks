@@ -86,6 +86,9 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 	setTCPErrCallback(pcb)
 	setTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
+	// Enable TCP KEEPALIVE.
+	pcb.so_options = C.u8_t(uint8(pcb.so_options) | uint8(C.SOF_KEEPALIVE))
+
 	pipeReader, pipeWriter := io.Pipe()
 	conn := &tcpConn{
 		pcb:           pcb,
