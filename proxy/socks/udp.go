@@ -50,7 +50,7 @@ func (h *udpHandler) handleTCP(conn core.UDPConn, c net.Conn) {
 	defer core.FreeBytes(buf)
 
 	for {
-		c.SetDeadline(time.Time{})
+		_ = c.SetDeadline(time.Time{})
 		_, err := c.Read(buf)
 		if err == io.EOF {
 			log.Warnf("UDP associate to %v closed by remote", c.RemoteAddr())
@@ -72,7 +72,7 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 	}()
 
 	for {
-		input.SetDeadline(time.Now().Add(h.timeout))
+		_ = input.SetDeadline(time.Now().Add(h.timeout))
 		n, _, err := input.ReadFrom(buf)
 		if err != nil {
 			// log.Printf("read remote failed: %v", err)
@@ -120,7 +120,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 			return nil // skip dns
 		}
 		if h.fakeDns.IsFakeIP(target.IP) {
-			targetHost = h.fakeDns.QueryDomain(target.IP)
+			targetHost = h.fakeDns.IPToHost(target.IP)
 		}
 	}
 	dest := net.JoinHostPort(targetHost, strconv.Itoa(target.Port))
@@ -133,10 +133,10 @@ func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 	if err != nil {
 		return err
 	}
-	c.SetDeadline(time.Now().Add(4 * time.Second))
+	_ = c.SetDeadline(time.Now().Add(4 * time.Second))
 
 	// send VER, NMETHODS, METHODS
-	c.Write([]byte{5, 1, 0})
+	_, _ = c.Write([]byte{5, 1, 0})
 
 	buf := make([]byte, MaxAddrLen)
 	// read VER METHOD
@@ -147,9 +147,9 @@ func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 	if len(dest) != 0 {
 		targetAddr := ParseAddr(dest)
 		// write VER CMD RSV ATYP DST.ADDR DST.PORT
-		c.Write(append([]byte{5, socks5UDPAssociate, 0}, targetAddr...))
+		_, _ = c.Write(append([]byte{5, socks5UDPAssociate, 0}, targetAddr...))
 	} else {
-		c.Write(append([]byte{5, socks5UDPAssociate, 0}, []byte{1, 0, 0, 0, 0, 0, 0}...))
+		_, _ = c.Write(append([]byte{5, socks5UDPAssociate, 0}, []byte{1, 0, 0, 0, 0, 0, 0}...))
 	}
 
 	// read VER REP RSV ATYP BND.ADDR BND.PORT
@@ -199,13 +199,13 @@ func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 			}
 
 			sess := &stats.Session{
-				process,
-				conn.LocalAddr().Network(),
-				conn.LocalAddr().String(),
-				dest,
-				0,
-				0,
-				time.Now(),
+				ProcessName:   process,
+				Network:       conn.LocalAddr().Network(),
+				LocalAddr:     conn.LocalAddr().String(),
+				RemoteAddr:    dest,
+				UploadBytes:   0,
+				DownloadBytes: 0,
+				SessionStart:  time.Now(),
 			}
 			h.sessionStater.AddSession(conn, sess)
 		}
@@ -220,44 +220,11 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr
 	remoteAddr, ok2 := h.remoteAddrs[conn]
 	h.Unlock()
 
-	if addr.Port == dns.COMMON_DNS_PORT {
-		if h.fakeDns != nil {
-			resp, err := h.fakeDns.GenerateFakeResponse(data)
-			if err != nil {
-				// FIXME This will block the lwip thread, need to optimize.
-				if err := h.connectInternal(conn, addr.String()); err != nil {
-					return fmt.Errorf("failed to connect to %v:%v", addr.Network(), addr.String())
-				}
-				h.Lock()
-				pc, ok1 = h.udpConns[conn]
-				remoteAddr, ok2 = h.remoteAddrs[conn]
-				h.Unlock()
-			} else {
-				_, err = conn.WriteFrom(resp, addr)
-				if err != nil {
-					return errors.New(fmt.Sprintf("write dns answer failed: %v", err))
-				}
-				h.Close(conn)
-				return nil
-			}
-		}
-
-		if h.dnsCache != nil {
-			if answer := h.dnsCache.Query(data); answer != nil {
-				_, err := conn.WriteFrom(answer, addr)
-				if err != nil {
-					return errors.New(fmt.Sprintf("write dns answer failed: %v", err))
-				}
-				h.Close(conn)
-				return nil
-			}
-		}
-	}
-
+	// use system DNS instead of force override
 	if ok1 && ok2 {
 		var targetHost string
 		if h.fakeDns != nil && h.fakeDns.IsFakeIP(addr.IP) {
-			targetHost = h.fakeDns.QueryDomain(addr.IP)
+			targetHost = h.fakeDns.IPToHost(addr.IP)
 		} else {
 			targetHost = addr.IP.String()
 		}
@@ -283,17 +250,17 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr
 }
 
 func (h *udpHandler) Close(conn core.UDPConn) {
-	conn.Close()
+	_ = conn.Close()
 
 	h.Lock()
 	defer h.Unlock()
 
 	if c, ok := h.tcpConns[conn]; ok {
-		c.Close()
+		_ = c.Close()
 		delete(h.tcpConns, conn)
 	}
 	if pc, ok := h.udpConns[conn]; ok {
-		pc.Close()
+		_ = pc.Close()
 		delete(h.udpConns, conn)
 	}
 	delete(h.remoteAddrs, conn)

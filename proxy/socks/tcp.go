@@ -93,17 +93,17 @@ func (h *tcpHandler) relay(lhs, rhs net.Conn, sess *stats.Session) {
 		if !interrupt && lhsOk && rhsOk {
 			switch dir {
 			case dirUplink:
-				lhsDConn.CloseRead()
-				rhsDConn.CloseWrite()
+				_ = lhsDConn.CloseRead()
+				_ = rhsDConn.CloseWrite()
 			case dirDownlink:
-				lhsDConn.CloseWrite()
-				rhsDConn.CloseRead()
+				_ = lhsDConn.CloseWrite()
+				_ = rhsDConn.CloseRead()
 			default:
 				panic("unexpected direction")
 			}
 		} else {
-			lhs.Close()
-			rhs.Close()
+			_ = lhs.Close()
+			_ = rhs.Close()
 		}
 	}
 
@@ -150,7 +150,7 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	// Replace with a domain name if target address IP is a fake IP.
 	var targetHost string
 	if h.fakeDns != nil && h.fakeDns.IsFakeIP(target.IP) {
-		targetHost = h.fakeDns.QueryDomain(target.IP)
+		targetHost = h.fakeDns.IPToHost(target.IP)
 	} else {
 		targetHost = target.IP.String()
 	}
@@ -173,13 +173,13 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 		}
 
 		sess = &stats.Session{
-			process,
-			target.Network(),
-			conn.LocalAddr().String(),
-			dest,
-			0,
-			0,
-			time.Now(),
+			ProcessName:   process,
+			Network:       target.Network(),
+			LocalAddr:     conn.LocalAddr().String(),
+			RemoteAddr:    dest,
+			UploadBytes:   0,
+			DownloadBytes: 0,
+			SessionStart:  time.Now(),
 		}
 		h.sessionStater.AddSession(conn, sess)
 	}
