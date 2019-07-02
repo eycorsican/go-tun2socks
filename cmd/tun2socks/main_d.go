@@ -21,7 +21,7 @@ func init() {
 	args.ExceptionApps = flag.String("exceptionApps", "", "A list of exception apps separated by commas")
 	args.ExceptionSendThrough = flag.String("exceptionSendThrough", "192.168.1.101:0", "Exception send through address")
 
-	registerHandlerCreater("d", func() {
+	registerHandlerCreator("d", func() {
 		// Verify proxy server address.
 		proxyAddr, err := net.ResolveTCPAddr("tcp", *args.ProxyServer)
 		if err != nil {

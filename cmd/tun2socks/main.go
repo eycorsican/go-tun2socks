@@ -21,10 +21,10 @@ import (
 
 var version = "undefined"
 
-var handlerCreater = make(map[string]func(), 0)
+var handlerCreator = make(map[string]func(), 0)
 
-func registerHandlerCreater(name string, creater func()) {
-	handlerCreater[name] = creater
+func registerHandlerCreator(name string, creator func()) {
+	handlerCreator[name] = creator
 }
 
 var postFlagsInitFn = make([]func(), 0)
@@ -69,7 +69,7 @@ const (
 	fStats
 )
 
-var flagCreaters = map[cmdFlag]func(){
+var flagCreators = map[cmdFlag]func(){
 	fProxyServer: func() {
 		if args.ProxyServer == nil {
 			args.ProxyServer = flag.String("proxyServer", "1.2.3.4:1087", "Proxy server address")
@@ -88,7 +88,7 @@ var flagCreaters = map[cmdFlag]func(){
 }
 
 func (a *CmdArgs) addFlag(f cmdFlag) {
-	if fn, found := flagCreaters[f]; found && fn != nil {
+	if fn, found := flagCreators[f]; found && fn != nil {
 		fn()
 	} else {
 		log.Fatalf("unsupported flag")
@@ -167,16 +167,16 @@ func main() {
 	}
 
 	// Register TCP and UDP handlers to handle accepted connections.
-	if creater, found := handlerCreater[*args.ProxyType]; found {
-		creater()
+	if creator, found := handlerCreator[*args.ProxyType]; found {
+		creator()
 	} else {
 		log.Fatalf("unsupported proxy type")
 	}
 
 	if args.DnsFallback != nil && *args.DnsFallback {
 		// Override the UDP handler with a DNS-over-TCP (fallback) UDP handler.
-		if creater, found := handlerCreater["dnsfallback"]; found {
-			creater()
+		if creator, found := handlerCreator["dnsfallback"]; found {
+			creator()
 		} else {
 			log.Fatalf("DNS fallback connection handler not found, build with `dnsfallback` tag")
 		}

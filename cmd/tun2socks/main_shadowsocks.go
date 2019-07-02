@@ -21,7 +21,7 @@ func init() {
 	args.ProxyCipher = flag.String("proxyCipher", "AEAD_CHACHA20_POLY1305", "Cipher used for Shadowsocks proxy, available ciphers: "+strings.Join(sscore.ListCipher(), " "))
 	args.ProxyPassword = flag.String("proxyPassword", "", "Password used for Shadowsocks proxy")
 
-	registerHandlerCreater("shadowsocks", func() {
+	registerHandlerCreator("shadowsocks", func() {
 		// Verify proxy server address.
 		proxyAddr, err := net.ResolveTCPAddr("tcp", *args.ProxyServer)
 		if err != nil {

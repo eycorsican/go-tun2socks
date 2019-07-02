@@ -23,7 +23,7 @@ func init() {
 	args.VConfig = flag.String("vconfig", "config.json", "Config file for v2ray, in JSON format, and note that routing in v2ray could not violate routes in the routing table")
 	args.SniffingType = flag.String("sniffingType", "http,tls", "Enable domain sniffing for specific kind of traffic in v2ray")
 
-	registerHandlerCreater("v2ray", func() {
+	registerHandlerCreator("v2ray", func() {
 		core.SetBufferPool(vbytespool.GetPool(core.BufSize))
 
 		configBytes, err := ioutil.ReadFile(*args.VConfig)

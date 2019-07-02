@@ -15,7 +15,7 @@ func init() {
 	args.addFlag(fUdpTimeout)
 	args.addFlag(fStats)
 
-	registerHandlerCreater("socks", func() {
+	registerHandlerCreator("socks", func() {
 		// Verify proxy server address.
 		proxyAddr, err := net.ResolveTCPAddr("tcp", *args.ProxyServer)
 		if err != nil {

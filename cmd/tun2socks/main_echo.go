@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	registerHandlerCreater("echo", func() {
+	registerHandlerCreator("echo", func() {
 		core.RegisterTCPConnHandler(echo.NewTCPHandler())
 		core.RegisterUDPConnHandler(echo.NewUDPHandler())
 	})
