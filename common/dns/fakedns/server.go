@@ -1,6 +1,5 @@
 package fakedns
 
-import "C"
 import (
 	"errors"
 	"net"
@@ -97,18 +96,6 @@ func (s *Server) StartServer() error {
 	}()
 	return nil
 }
-
-/*
-// IPToHost return fake-ip
-func (s *Server) IPToHost(ip net.IP) (string,bool) {
-	c := s.c.Get(ip.String())
-	if c == nil {
-		return "", false
-	}
-	fqdn := c.(*D.Msg).Question[0].Name
-	return strings.TrimRight(fqdn, "."),true
-}
-*/
 
 func (s *Server) IPToHost(ip net.IP) string {
 	c := s.c.Get(ip.String())
