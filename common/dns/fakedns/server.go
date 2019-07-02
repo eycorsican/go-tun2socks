@@ -107,7 +107,7 @@ func (s *Server) IPToHost(ip net.IP) string {
 }
 
 func (s *Server) IsFakeIP(ip net.IP) bool {
-	c := ipToUint(ip)
+	c := ip2uint32(ip)
 	if c >= s.p.min && c <= s.p.max {
 		return true
 	}
