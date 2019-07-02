@@ -19,6 +19,11 @@ import (
 
 const maxCompletedSessions = 50
 
+var (
+	StaterAddr = "localhost:6001"
+	StaterPath = "/stats/session/plain"
+)
+
 type simpleSessionStater struct {
 	sessions          sync.Map
 	completedSessions []stats.Session
@@ -80,10 +85,13 @@ func (s *simpleSessionStater) Start() error {
 		w.Flush()
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/stats/session/plain", sessionStatsHandler)
-	server := &http.Server{Addr: "127.0.0.1:6001", Handler: mux}
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, StaterPath, 301)
+	})
+	mux.HandleFunc(StaterPath, sessionStatsHandler)
+	server := &http.Server{Addr: StaterAddr, Handler: mux}
 	go func() {
-		s.server.ListenAndServe()
+		_ = s.server.ListenAndServe()
 	}()
 	s.server = server
 	return nil
