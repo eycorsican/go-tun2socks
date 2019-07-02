@@ -27,7 +27,7 @@ func NewUDPHandler() core.UDPConnHandler {
 }
 
 func (h *udpHandler) Connect(conn core.UDPConn, udpAddr *net.UDPAddr) error {
-	if udpAddr.Port != dns.COMMON_DNS_PORT {
+	if udpAddr.Port != dns.CommonDnsPort {
 		return errors.New("Cannot handle non-DNS packet")
 	}
 	return nil

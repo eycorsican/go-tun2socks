@@ -80,7 +80,7 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 			if err != nil {
 				panic("impossible error")
 			}
-			if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			if port == strconv.Itoa(dns.CommonDnsPort) {
 				h.dnsCache.Store(buf[int(len(addr)):n])
 				return // DNS response
 			}
@@ -110,7 +110,7 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr
 	pc, ok1 := h.conns[conn]
 	h.Unlock()
 
-	if addr.Port == dns.COMMON_DNS_PORT {
+	if addr.Port == dns.CommonDnsPort {
 		if h.fakeDns != nil {
 			resp, err := h.fakeDns.GenerateFakeResponse(data)
 			if err == nil {

@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-const COMMON_DNS_PORT = 53
+const CommonDnsPort = 53
 
 type DnsCache interface {
 	// Query queries the response for the DNS request with payload `p`,

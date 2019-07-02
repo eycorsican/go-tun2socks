@@ -100,7 +100,7 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 			if err != nil {
 				panic("impossible error")
 			}
-			if port == strconv.Itoa(dns.COMMON_DNS_PORT) {
+			if port == strconv.Itoa(dns.CommonDnsPort) {
 				h.dnsCache.Store(buf[int(3+len(addr)):n])
 				return // DNS response
 			}
@@ -116,7 +116,7 @@ func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	// Replace with a domain name if target address IP is a fake IP.
 	targetHost := target.IP.String()
 	if h.fakeDns != nil {
-		if target.Port == dns.COMMON_DNS_PORT {
+		if target.Port == dns.CommonDnsPort {
 			return nil // skip dns
 		}
 		if h.fakeDns.IsFakeIP(target.IP) {
