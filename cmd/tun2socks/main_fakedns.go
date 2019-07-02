@@ -10,12 +10,17 @@ import (
 
 func init() {
 	args.EnableFakeDns = flag.Bool("fakeDns", false, "Enable fake DNS")
-	args.FakeDnsMinIP = flag.String("fakeDnsMinIP", "172.255.0.0", "Minimum fake IP used by fake DNS")
-	args.FakeDnsMaxIP = flag.String("fakeDnsMaxIP", "172.255.255.255", "Maximum fake IP used by fake DNS")
+	args.FakeDnsAddr = flag.String("fakeDnsAddr", ":53", "listen address of fake DNS")
+	args.FakeIPRange = flag.String("fakeIPRange", "198.18.0.1/16", "fake IP CIDR range for DNS")
 
 	addPostFlagsInitFn(func() {
 		if *args.EnableFakeDns {
-			fakeDns = fakedns.NewSimpleFakeDns(*args.FakeDnsMinIP, *args.FakeDnsMaxIP)
+			fakeDnsServer, err := fakedns.NewServer(*args.FakeDnsAddr, *args.FakeIPRange)
+			if err != nil {
+				panic("create fake dns server error")
+			}
+			fakeDnsServer.StartServer()
+			fakeDns = fakeDnsServer
 		} else {
 			fakeDns = nil
 		}

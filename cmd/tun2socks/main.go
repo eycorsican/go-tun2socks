@@ -54,8 +54,8 @@ type CmdArgs struct {
 	DnsFallback          *bool
 	LogLevel             *string
 	EnableFakeDns        *bool
-	FakeDnsMinIP         *string
-	FakeDnsMaxIP         *string
+	FakeIPRange          *string
+	FakeDnsAddr          *string
 	ExceptionApps        *string
 	ExceptionSendThrough *string
 	Stats                *bool
@@ -147,7 +147,7 @@ func main() {
 	case "none":
 		log.SetLevel(log.NONE)
 	default:
-		panic("unsupport logging level")
+		panic("unsupported logging level")
 	}
 
 	// Open the tun device.
@@ -158,7 +158,7 @@ func main() {
 	}
 
 	// Setup TCP/IP stack.
-	lwipWriter := core.NewLWIPStack().(io.Writer)
+	lwipWriter = core.NewLWIPStack().(io.Writer)
 
 	// Wrap a writer to delay ICMP packets if delay time is not zero.
 	if *args.DelayICMP > 0 {
@@ -203,6 +203,6 @@ func main() {
 	<-osSignals
 
 	if sessionStater != nil {
-		sessionStater.Stop()
+		_ = sessionStater.Stop()
 	}
 }
