@@ -59,6 +59,7 @@ type CmdArgs struct {
 	ExceptionApps        *string
 	ExceptionSendThrough *string
 	Stats                *bool
+	StatsAddr            *string
 }
 
 type cmdFlag uint
@@ -82,7 +83,7 @@ var flagCreators = map[cmdFlag]func(){
 	},
 	fStats: func() {
 		if args.Stats == nil {
-			args.Stats = flag.Bool("stats", false, "Enable statistics, open http://localhost:6001/stats/session/plain in your browser to view statistics")
+			args.Stats = flag.Bool("stats", false, "Enable statistics")
 		}
 	},
 }
