@@ -113,9 +113,9 @@ const (
 
 func main() {
 	args.Version = flag.Bool("version", false, "Print version")
-	args.TunName = flag.String("tunName", "tun1", "TUN interface name")
-	args.TunAddr = flag.String("tunAddr", "10.255.0.2", "TUN interface address")
-	args.TunGw = flag.String("tunGw", "10.255.0.1", "TUN interface gateway")
+	args.TunName = flag.String("tunName", "tun0", "TUN interface name")
+	args.TunAddr = flag.String("tunAddr", "240.0.0.2", "TUN interface address")
+	args.TunGw = flag.String("tunGw", "240.0.0.1", "TUN interface gateway")
 	args.TunMask = flag.String("tunMask", "255.255.255.0", "TUN interface netmask, it should be a prefixlen (a number) for IPv6 address")
 	args.TunDns = flag.String("tunDns", "8.8.8.8,8.8.4.4", "DNS resolvers for TUN interface (only need on Windows)")
 	args.ProxyType = flag.String("proxyType", "socks", "Proxy handler type")
