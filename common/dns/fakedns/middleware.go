@@ -34,6 +34,7 @@ func withFakeIP(cache *Cache, pool *Pool) handler {
 		putMsgToCache(cache, ip.String(), msg)
 
 		setMsgTTL(msg, dnsFakeTTL)
+		_ = w.WriteMsg(msg)
 		return
 	}
 }
@@ -57,8 +58,11 @@ func withHost(hosts *trie.Trie, next handler) handler {
 			return
 		}
 
-		ip := host.Data.(net.IP)
-		if q.Qtype == D.TypeAAAA && ip.To16() == nil {
+		ip, ok := host.Data.(net.IP)
+		if !ok {
+			next(w, r)
+			return
+		} else if q.Qtype == D.TypeAAAA && ip.To16() == nil {
 			next(w, r)
 			return
 		} else if q.Qtype == D.TypeA && ip.To4() == nil {

@@ -20,7 +20,9 @@ func init() {
 			if err != nil {
 				panic("create fake dns server error")
 			}
-			fakeDnsServer.StartServer(*args.FakeDnsAddr)
+			if err := fakeDnsServer.StartServer(*args.FakeDnsAddr); err != nil {
+				panic("cannot start fake dns server")
+			}
 			fakeDns = fakeDnsServer
 		} else {
 			fakeDns = nil
