@@ -56,6 +56,7 @@ type CmdArgs struct {
 	EnableFakeDns        *bool
 	FakeIPRange          *string
 	FakeDnsAddr          *string
+	FakeDnsHosts         *string
 	ExceptionApps        *string
 	ExceptionSendThrough *string
 	Stats                *bool
