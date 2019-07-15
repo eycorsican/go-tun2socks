@@ -58,11 +58,8 @@ func withHost(hosts *trie.Trie, next handler) handler {
 			return
 		}
 
-		ip, ok := host.Data.(net.IP)
-		if !ok {
-			next(w, r)
-			return
-		} else if q.Qtype == D.TypeAAAA && ip.To16() == nil {
+		ip := host.Data.(net.IP)
+		if q.Qtype == D.TypeAAAA && ip.To16() == nil {
 			next(w, r)
 			return
 		} else if q.Qtype == D.TypeA && ip.To4() == nil {
