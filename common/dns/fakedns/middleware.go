@@ -92,6 +92,8 @@ func withHost(hosts *trie.Trie, next handler) handler {
 }
 
 func strToHosts(str string) *trie.Trie {
+	// trim `'` `"` ` ` char
+	str = strings.Trim(str, "' \"")
 	if str == "" {
 		return nil
 	}
