@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/miekg/dns"
 	D "github.com/miekg/dns"
 )
 
@@ -19,61 +18,21 @@ var (
 
 type Server struct {
 	*D.Server
-	a string
-	c *Cache
 	p *Pool
+	c *Cache
+	h handler
 }
 
 func (s *Server) ServeDNS(w D.ResponseWriter, r *D.Msg) {
-	msg, err := s.handleFakeIP(r)
-	if err != nil {
+	if len(r.Question) == 0 {
 		D.HandleFailed(w, r)
 		return
 	}
-	msg.SetReply(r)
-	_ = w.WriteMsg(msg)
-	return
 
+	s.h(w, r)
 }
 
-func (s *Server) handleFakeIP(r *D.Msg) (msg *D.Msg, err error) {
-	if len(r.Question) == 0 {
-		err = errors.New("should have one question at least")
-		return
-	}
-
-	q := r.Question[0]
-
-	c := s.c.Get("fakeip:" + q.String())
-	if c != nil {
-		msg = c.(*D.Msg).Copy()
-		setMsgTTL(msg, dnsFakeTTL)
-		return
-	}
-
-	var ip net.IP
-	defer func() {
-		if msg == nil {
-			return
-		}
-
-		putMsgToCache(s.c, "fakeip:"+q.String(), msg)
-		putMsgToCache(s.c, ip.String(), msg)
-
-		setMsgTTL(msg, dnsFakeTTL)
-	}()
-
-	rr := &D.A{}
-	rr.Hdr = dns.RR_Header{Name: r.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: dnsDefaultTTL}
-	ip = s.p.Get()
-	rr.A = ip
-	msg = r.Copy()
-	msg.Answer = []D.RR{rr}
-	return
-}
-
-func (s *Server) StartServer() error {
-	var addr = s.a
+func (s *Server) StartServer(addr string) error {
 	_, port, err := net.SplitHostPort(addr)
 	if port == "0" || port == "" || err != nil {
 		return errors.New("address format error")
@@ -114,7 +73,7 @@ func (s *Server) IsFakeIP(ip net.IP) bool {
 	return false
 }
 
-func NewServer(addr, fakeIPRange string) (*Server, error) {
+func NewServer(fakeIPRange, hostsMap string) (*Server, error) {
 	_, ipnet, err := net.ParseCIDR(fakeIPRange)
 	if err != nil {
 		return nil, err
@@ -124,9 +83,13 @@ func NewServer(addr, fakeIPRange string) (*Server, error) {
 		return nil, err
 	}
 
+	cache := NewCache(cacheDuration)
+	hosts := strToHosts(hostsMap)
+	handler := newHandler(hosts, cache, pool)
+
 	return &Server{
-		a: addr,
-		c: NewCache(cacheDuration),
 		p: pool,
+		c: cache,
+		h: handler,
 	}, nil
 }
