@@ -20,6 +20,7 @@ import (
 const maxCompletedSessions = 50
 
 type simpleSessionStater struct {
+	sync.Mutex
 	sessions          sync.Map
 	completedSessions []stats.Session
 	server            *http.Server
@@ -81,11 +82,8 @@ func (s *simpleSessionStater) Start() error {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stats/session/plain", sessionStatsHandler)
-	server := &http.Server{Addr: "127.0.0.1:6001", Handler: mux}
-	go func() {
-		s.server.ListenAndServe()
-	}()
-	s.server = server
+	s.server = &http.Server{Addr: "127.0.0.1:6001", Handler: mux}
+	go s.server.ListenAndServe()
 	return nil
 }
 
@@ -106,6 +104,9 @@ func (s *simpleSessionStater) GetSession(key interface{}) *stats.Session {
 }
 
 func (s *simpleSessionStater) RemoveSession(key interface{}) {
+	s.Lock()
+	defer s.Unlock()
+
 	if sess, ok := s.sessions.Load(key); ok {
 		s.completedSessions = append(s.completedSessions, *(sess.(*stats.Session)))
 		if len(s.completedSessions) > maxCompletedSessions {
