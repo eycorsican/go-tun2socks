@@ -10,12 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/eycorsican/go-tun2socks/common/dns"
 	"github.com/eycorsican/go-tun2socks/common/log"
 	_ "github.com/eycorsican/go-tun2socks/common/log/simple" // Register a simple logger.
-	"github.com/eycorsican/go-tun2socks/common/stats"
 	"github.com/eycorsican/go-tun2socks/core"
-	"github.com/eycorsican/go-tun2socks/filter"
 	"github.com/eycorsican/go-tun2socks/tun"
 )
 
@@ -34,31 +31,19 @@ func addPostFlagsInitFn(fn func()) {
 }
 
 type CmdArgs struct {
-	Version              *bool
-	TunName              *string
-	TunAddr              *string
-	TunGw                *string
-	TunMask              *string
-	TunDns               *string
-	ProxyType            *string
-	VConfig              *string
-	SniffingType         *string
-	ProxyServer          *string
-	ProxyHost            *string
-	ProxyPort            *uint16
-	ProxyCipher          *string
-	ProxyPassword        *string
-	DelayICMP            *int
-	UdpTimeout           *time.Duration
-	DisableDnsCache      *bool
-	DnsFallback          *bool
-	LogLevel             *string
-	EnableFakeDns        *bool
-	FakeDnsMinIP         *string
-	FakeDnsMaxIP         *string
-	ExceptionApps        *string
-	ExceptionSendThrough *string
-	Stats                *bool
+	Version     *bool
+	TunName     *string
+	TunAddr     *string
+	TunGw       *string
+	TunMask     *string
+	TunDns      *string
+	ProxyType   *string
+	ProxyServer *string
+	ProxyHost   *string
+	ProxyPort   *uint16
+	UdpTimeout  *time.Duration
+	LogLevel    *string
+	DnsFallback *bool
 }
 
 type cmdFlag uint
@@ -66,7 +51,6 @@ type cmdFlag uint
 const (
 	fProxyServer cmdFlag = iota
 	fUdpTimeout
-	fStats
 )
 
 var flagCreaters = map[cmdFlag]func(){
@@ -78,11 +62,6 @@ var flagCreaters = map[cmdFlag]func(){
 	fUdpTimeout: func() {
 		if args.UdpTimeout == nil {
 			args.UdpTimeout = flag.Duration("udpTimeout", 1*time.Minute, "UDP session timeout")
-		}
-	},
-	fStats: func() {
-		if args.Stats == nil {
-			args.Stats = flag.Bool("stats", false, "Enable statistics, open http://localhost:6001/stats/session/plain in your browser to view statistics")
 		}
 	},
 }
@@ -99,12 +78,6 @@ var args = new(CmdArgs)
 
 var lwipWriter io.Writer
 
-var dnsCache dns.DnsCache
-
-var fakeDns dns.FakeDns
-
-var sessionStater stats.SessionStater
-
 const (
 	MTU = 1500
 )
@@ -117,7 +90,6 @@ func main() {
 	args.TunMask = flag.String("tunMask", "255.255.255.0", "TUN interface netmask, it should be a prefixlen (a number) for IPv6 address")
 	args.TunDns = flag.String("tunDns", "8.8.8.8,8.8.4.4", "DNS resolvers for TUN interface (only need on Windows)")
 	args.ProxyType = flag.String("proxyType", "socks", "Proxy handler type")
-	args.DelayICMP = flag.Int("delayICMP", 10, "Delay ICMP packets for a short period of time, in milliseconds")
 	args.LogLevel = flag.String("loglevel", "info", "Logging level. (debug, info, warn, error, none)")
 
 	flag.Parse()
@@ -160,12 +132,6 @@ func main() {
 	// Setup TCP/IP stack.
 	lwipWriter := core.NewLWIPStack().(io.Writer)
 
-	// Wrap a writer to delay ICMP packets if delay time is not zero.
-	if *args.DelayICMP > 0 {
-		log.Infof("ICMP packets will be delayed for %dms", *args.DelayICMP)
-		lwipWriter = filter.NewICMPFilter(lwipWriter, *args.DelayICMP).(io.Writer)
-	}
-
 	// Register TCP and UDP handlers to handle accepted connections.
 	if creater, found := handlerCreater[*args.ProxyType]; found {
 		creater()
@@ -201,8 +167,4 @@ func main() {
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)
 	<-osSignals
-
-	if sessionStater != nil {
-		sessionStater.Stop()
-	}
 }
