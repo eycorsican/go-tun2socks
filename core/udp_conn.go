@@ -35,7 +35,7 @@ type udpConn struct {
 	localIP   C.ip_addr_t
 	localPort C.u16_t
 	state     udpConnState
-	pending   *udpPacket
+	pending   chan *udpPacket
 }
 
 func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr_t, localPort C.u16_t, localAddr, remoteAddr *net.UDPAddr) (UDPConn, error) {
@@ -46,7 +46,7 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 		localIP:   localIP,
 		localPort: localPort,
 		state:     udpConnecting,
-		pending:   nil, // To hold the first packet on the connection
+		pending:   make(chan *udpPacket, 1), // To hold the first packet on the connection
 	}
 
 	go func() {
@@ -57,11 +57,19 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 			conn.Lock()
 			conn.state = udpConnected
 			conn.Unlock()
-			// Once connected, send pending data.
-			pkt := conn.pending
-			conn.pending = nil
-			if pkt != nil {
-				conn.handler.ReceiveTo(conn, pkt.data, pkt.addr)
+			// Once connected, send all pending data.
+		DrainPending:
+			for {
+				select {
+				case pkt := <-conn.pending:
+					err := conn.handler.ReceiveTo(conn, pkt.data, pkt.addr)
+					if err != nil {
+						break DrainPending
+					}
+					continue DrainPending
+				default:
+					break DrainPending
+				}
 			}
 		}
 	}()
@@ -88,20 +96,25 @@ func (conn *udpConn) checkState() error {
 	return nil
 }
 
-// If the connection isn't ready yet, and this is the first packet, make a copy
+// If the connection isn't ready yet, and there is room in the queue, make a copy
 // and hold onto it until the connection is ready.
-func (conn *udpConn) delayFirstPacket(data []byte, addr *net.UDPAddr) bool {
+func (conn *udpConn) enqueueEarlyPacket(data []byte, addr *net.UDPAddr) bool {
 	conn.Lock()
 	defer conn.Unlock()
-	if conn.state == udpConnecting && conn.pending == nil {
-		conn.pending = &udpPacket{data: append([]byte(nil), data...), addr: addr}
-		return true
+	if conn.state == udpConnecting {
+		pkt := &udpPacket{data: append([]byte(nil), data...), addr: addr}
+		select {
+		// Data will be dropped if pending is full.
+		case conn.pending <- pkt:
+			return true
+		default:
+		}
 	}
 	return false
 }
 
 func (conn *udpConn) ReceiveTo(data []byte, addr *net.UDPAddr) error {
-	if conn.delayFirstPacket(data, addr) {
+	if conn.enqueueEarlyPacket(data, addr) {
 		return nil
 	}
 	if err := conn.checkState(); err != nil {
