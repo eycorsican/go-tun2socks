@@ -5,7 +5,7 @@ services:
 
 language: go
 go:
-  - "1.12.9"
+  - "1.13"
 
 before_install:
   - go get github.com/karalabe/xgo
@@ -17,7 +17,7 @@ script: make travisbuild
 deploy:
   provider: releases
   api_key:
-    secure: "OtI74uPUQvLasnFy0pfRxpWaltUiNYGgZ+o/1tEuxnaktMfLLLTnSba7GLhl4jzJXwvg5bEMQL1QVQpp1vtalX871Ey0m7tV7X83GVuaEA/ToE7q2lazErCH69e5/1M/SpHbIDWvC7QO5oyJNv7SI0giQ1H+YDjgrIHscEVBme5f8ZCeUoxw7wKVQPf8NJAVYJYmfG7Huu+trtNuzmId10Drs33jo2NNB3fW12Fp4sJbdeHEe1pVaBsChaK8f6hnZdrvPvc5XbKZfDMEgyEp1mrRUH7whNmtS/uoRbhaUEJpZCuu0COnRricxa2lntOsZRa5E2gvfIlNpgLHfV4pcqkCCBbJa0QcOQYciZSEtXUCKicWu05zqT80eHlRXoKXAXeN/jRwJk+tCs7K8jeLwM1FBg3zKmKhKdB9Am8yXNKTwucuVv+NEYsUUwW8SYXV59aKkGZRZ/qT/sIuq6RlKq/Az92GoFlPd+NsUE5gCFYwZb1OuHMaYvbcjhaz7cYXL6DHAiJ60PphQAUocf7GdoUwVFVdeI5CC2x9m4Nul371oBkcdHlnPvGIVGgeh5MvRedCUBU/FEJZiQC9m/7bdJ/zVEiOV0loIteEaUV7m9pdfkJwvLw95nP+N2LKMMIURyhEq94CgW2SLCS5wn2CRjcY+G3/DooHbxkWILdXAzw="
+    secure: "Yom8wSzSSa2XIbK/T7x9QbHt+reYPHseFAmyB3XAcuTOcqbLU79CWfR5XcPPYnn2zhGu5ATQcc6JlKjATHgz3JFn8YxBPxoKNX3Q+K1jsrNMWYfz7uokFzUndvMuQrLYlAYcywaLQgRKIFbTwPAKqEYOET8fzH6Frv+zxiUELfOYiKrnqEb0I6AgkSkH5DM1jQS9GllnciW0J7+4bWIv6cUi02JBQ4Atl3Pq83j2WlpaYIseRoDA+6yJ8bgEc5QTAynx3jTJ1Ok3HKH9XywpWiy59zTI+kaxGPYYoa5Ei1cihhxPTRo0hrRSVxRvnZ5LZopVmXA4+r3FUDyRLlhyxvBEEYjnG7Jh1sEQfpSCmpde+mRrQFvKxbnJjK5UGUatDqV2cxlJmVIOkClYTc0fVS9qBJwjdz+Q3xBkFLchX+L55L8/ZCRm9Qq5OiYQr4RhrbntDE0c0F1KYkY4oi64toAI24X8QdJA5c9FwL4QDqkGt1J+tmFKTDC9cWT1UwtA1d9x55XYyHZ3eRlVM+R0UMeeMNmOKXyJDzy3H5DRSr6UmZCUM/zXo4ip5HNNyXSsMjjkqqC3Zg+OY2kjBMHOwnbIr7cRvnvq5DdUue/L53F0PryumXrfoZ/pg3jv7OhsltAXqZ5GO9b/wYRlfSMrlRo3//c+d5nMHRmd4N4Bzm8="
   file_glob: true
   file:
     - "build/tun2socks*"
