@@ -6,10 +6,12 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/eycorsican/go-tun2socks/common/dns/blocker"
 	"github.com/eycorsican/go-tun2socks/common/log"
 	_ "github.com/eycorsican/go-tun2socks/common/log/simple" // Register a simple logger.
 	"github.com/eycorsican/go-tun2socks/core"
@@ -31,20 +33,21 @@ func addPostFlagsInitFn(fn func()) {
 }
 
 type CmdArgs struct {
-	Version     *bool
-	TunName     *string
-	TunAddr     *string
-	TunGw       *string
-	TunMask     *string
-	TunDns      *string
-	TunPersist  *bool
-	ProxyType   *string
-	ProxyServer *string
-	ProxyHost   *string
-	ProxyPort   *uint16
-	UdpTimeout  *time.Duration
-	LogLevel    *string
-	DnsFallback *bool
+	Version         *bool
+	TunName         *string
+	TunAddr         *string
+	TunGw           *string
+	TunMask         *string
+	TunDns          *string
+	TunPersist      *bool
+	BlockOutsideDns *bool
+	ProxyType       *string
+	ProxyServer     *string
+	ProxyHost       *string
+	ProxyPort       *uint16
+	UdpTimeout      *time.Duration
+	LogLevel        *string
+	DnsFallback     *bool
 }
 
 type cmdFlag uint
@@ -91,6 +94,7 @@ func main() {
 	args.TunMask = flag.String("tunMask", "255.255.255.0", "TUN interface netmask, it should be a prefixlen (a number) for IPv6 address")
 	args.TunDns = flag.String("tunDns", "8.8.8.8,8.8.4.4", "DNS resolvers for TUN interface (only need on Windows)")
 	args.TunPersist = flag.Bool("tunPersist", false, "Persist TUN interface after the program exits or the last open file descriptor is closed (Linux only)")
+	args.BlockOutsideDns = flag.Bool("blockOutsideDns", false, "Prevent DNS leaks by blocking plaintext DNS queries going out through non-TUN interface (may require admin privileges) (Windows only) ")
 	args.ProxyType = flag.String("proxyType", "socks", "Proxy handler type")
 	args.LogLevel = flag.String("loglevel", "info", "Logging level. (debug, info, warn, error, none)")
 
@@ -129,6 +133,12 @@ func main() {
 	tunDev, err := tun.OpenTunDevice(*args.TunName, *args.TunAddr, *args.TunGw, *args.TunMask, dnsServers, *args.TunPersist)
 	if err != nil {
 		log.Fatalf("failed to open tun device: %v", err)
+	}
+
+	if runtime.GOOS == "windows" && *args.BlockOutsideDns {
+		if err := blocker.BlockOutsideDns(*args.TunName); err != nil {
+			log.Fatalf("failed to block outside DNS: %v", err)
+		}
 	}
 
 	// Setup TCP/IP stack.
