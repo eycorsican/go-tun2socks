@@ -12,6 +12,9 @@ import (
 	"github.com/eycorsican/go-tun2socks/core"
 )
 
+// max IP packet size - min IP header size - min UDP header size - min SOCKS5 header size
+const maxUdpPayloadSize = 65535 - 20 - 8 - 7
+
 type udpHandler struct {
 	sync.Mutex
 
@@ -51,7 +54,7 @@ func (h *udpHandler) handleTCP(conn core.UDPConn, c net.Conn) {
 }
 
 func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
-	buf := core.NewBytes(core.BufSize)
+	buf := core.NewBytes(maxUdpPayloadSize)
 
 	defer func() {
 		h.Close(conn)
