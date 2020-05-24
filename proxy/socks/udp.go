@@ -67,10 +67,10 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 		if err != nil {
 			return
 		}
-		if len(buf) < 3 {
+		if n < 3 {
 			return
 		}
-		addr := SplitAddr(buf[3:])
+		addr := SplitAddr(buf[3:n])
 		if addr == nil {
 			return
 		}
