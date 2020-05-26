@@ -4,7 +4,7 @@ package core
 #cgo CFLAGS: -I./c/include
 #include "lwip/tcp.h"
 
-void tcp_arg_cgo(struct tcp_pcb *pcb, uint64_t ptr) {
+void tcp_arg_cgo(struct tcp_pcb *pcb, uintptr_t ptr) {
     tcp_arg(pcb, (void*)ptr);
 }
 
@@ -96,7 +96,7 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 		sndPipeWriter: pipeWriter,
 	}
 
-	C.tcp_arg_cgo(pcb, C.ulonglong(uintptr(unsafe.Pointer(conn))))
+	C.tcp_arg_cgo(pcb, C.uintptr_t(uintptr(unsafe.Pointer(conn))))
 	tcpConns.Store(conn, true)
 
 	// Connecting remote host could take some time, do it in another goroutine
