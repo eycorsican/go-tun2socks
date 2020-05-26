@@ -3,13 +3,17 @@ package core
 /*
 #cgo CFLAGS: -I./c/include
 #include "lwip/tcp.h"
+
+void tcp_arg_cgo(struct tcp_pcb *pcb, uint64_t ptr) {
+    tcp_arg(pcb, (void*)ptr);
+}
+
 */
 import "C"
 import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -62,8 +66,6 @@ type tcpConn struct {
 	handler       TCPConnHandler
 	remoteAddr    *net.TCPAddr
 	localAddr     *net.TCPAddr
-	connKeyArg    unsafe.Pointer
-	connKey       uint32
 	canWrite      *sync.Cond // Condition variable to implement TCP backpressure.
 	state         tcpConnState
 	sndPipeReader *io.PipeReader
@@ -73,12 +75,6 @@ type tcpConn struct {
 }
 
 func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) {
-	connKeyArg := newConnKeyArg()
-	connKey := rand.Uint32()
-	setConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
-
-	// Pass the key as arg for subsequent tcp callbacks.
-	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
 
 	// Register callbacks.
 	setTCPRecvCallback(pcb)
@@ -92,16 +88,13 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 		handler:       handler,
 		localAddr:     ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
 		remoteAddr:    ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
-		connKeyArg:    connKeyArg,
-		connKey:       connKey,
 		canWrite:      sync.NewCond(&sync.Mutex{}),
 		state:         tcpNewConn,
 		sndPipeReader: pipeReader,
 		sndPipeWriter: pipeWriter,
 	}
 
-	// Associate conn with key and save to the global map.
-	tcpConns.Store(connKey, conn)
+	C.tcp_arg_cgo(pcb, C.ulonglong(uintptr(unsafe.Pointer(conn))))
 
 	// Connecting remote host could take some time, do it in another goroutine
 	// to prevent blocking the lwip thread.
@@ -453,10 +446,6 @@ func (conn *tcpConn) LocalClosed() error {
 }
 
 func (conn *tcpConn) release() {
-	if _, found := tcpConns.Load(conn.connKey); found {
-		freeConnKeyArg(conn.connKeyArg)
-		tcpConns.Delete(conn.connKey)
-	}
 	conn.sndPipeWriter.Close()
 	conn.sndPipeReader.Close()
 	conn.state = tcpClosed
