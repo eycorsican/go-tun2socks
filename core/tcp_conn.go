@@ -22,6 +22,8 @@ import (
 
 type tcpConnState uint
 
+var tcpConns sync.Map
+
 const (
 	// tcpNewConn is the initial state.
 	tcpNewConn tcpConnState = iota
@@ -95,6 +97,7 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 	}
 
 	C.tcp_arg_cgo(pcb, C.ulonglong(uintptr(unsafe.Pointer(conn))))
+	tcpConns.Store(conn, true)
 
 	// Connecting remote host could take some time, do it in another goroutine
 	// to prevent blocking the lwip thread.
@@ -446,6 +449,7 @@ func (conn *tcpConn) LocalClosed() error {
 }
 
 func (conn *tcpConn) release() {
+	tcpConns.Delete(conn)
 	conn.sndPipeWriter.Close()
 	conn.sndPipeReader.Close()
 	conn.state = tcpClosed
