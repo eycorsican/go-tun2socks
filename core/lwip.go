@@ -129,10 +129,10 @@ func (s *lwipStack) Close() error {
 	s.cancel()
 
 	// Abort and close all TCP and UDP connections.
-	tcpConns.Range(func(_, c interface{}) bool {
-		c.(*tcpConn).Abort()
-		return true
-	})
+	// tcpConns.Range(func(_, c interface{}) bool {
+	// 	c.(*tcpConn).Abort()
+	// 	return true
+	// })
 	udpConns.Range(func(_, c interface{}) bool {
 		// This only closes UDP connections in the core,
 		// UDP connections in the handler will wait till
