@@ -389,3 +389,7 @@ func (dev *winTapDev) Close() error {
 	sendStopMarker(dev.addr, dev.gw)
 	return windows.Close(dev.fd)
 }
+
+func OpenTunDeviceByDomainSocket(sockpath, name, addr, gw, mask string, dnsServers []string, persist bool) (io.ReadWriteCloser, error) {
+	return nil,errors.New("not supported")
+}

@@ -65,3 +65,7 @@ func OpenTunDevice(name, addr, gw, mask string, dnsServers []string, persist boo
 	}
 	return tunDev, nil
 }
+
+func OpenTunDeviceByDomainSocket(sockpath, name, addr, gw, mask string, dnsServers []string, persist bool) (io.ReadWriteCloser, error) {
+	return nil,errors.New("no implement")
+}

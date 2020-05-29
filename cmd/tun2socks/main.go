@@ -48,6 +48,7 @@ type CmdArgs struct {
 	UdpTimeout      *time.Duration
 	LogLevel        *string
 	DnsFallback     *bool
+	SockPath        *string
 }
 
 type cmdFlag uint
@@ -97,6 +98,7 @@ func main() {
 	args.BlockOutsideDns = flag.Bool("blockOutsideDns", false, "Prevent DNS leaks by blocking plaintext DNS queries going out through non-TUN interface (may require admin privileges) (Windows only) ")
 	args.ProxyType = flag.String("proxyType", "socks", "Proxy handler type")
 	args.LogLevel = flag.String("loglevel", "info", "Logging level. (debug, info, warn, error, none)")
+	args.SockPath = flag.String("sockPath", "", "unix local socks path to send fd")
 
 	flag.Parse()
 
@@ -130,7 +132,14 @@ func main() {
 
 	// Open the tun device.
 	dnsServers := strings.Split(*args.TunDns, ",")
-	tunDev, err := tun.OpenTunDevice(*args.TunName, *args.TunAddr, *args.TunGw, *args.TunMask, dnsServers, *args.TunPersist)
+
+	var tunDev io.ReadWriteCloser
+	var err error
+	if *args.SockPath != "" {
+		tunDev, err = tun.OpenTunDeviceByDomainSocket(*args.SockPath, *args.TunName, *args.TunAddr, *args.TunGw, *args.TunMask, dnsServers, *args.TunPersist)
+	} else {
+		tunDev, err = tun.OpenTunDevice(*args.TunName, *args.TunAddr, *args.TunGw, *args.TunMask, dnsServers, *args.TunPersist)
+	}
 	if err != nil {
 		log.Fatalf("failed to open tun device: %v", err)
 	}
@@ -140,9 +149,6 @@ func main() {
 			log.Fatalf("failed to block outside DNS: %v", err)
 		}
 	}
-
-	// Setup TCP/IP stack.
-	lwipWriter := core.NewLWIPStack().(io.Writer)
 
 	// Register TCP and UDP handlers to handle accepted connections.
 	if creater, found := handlerCreater[*args.ProxyType]; found {
@@ -166,14 +172,17 @@ func main() {
 		return tunDev.Write(data)
 	})
 
-	// Copy packets from tun device to lwip stack, it's the main loop.
-	go func() {
-		_, err := io.CopyBuffer(lwipWriter, tunDev, make([]byte, MTU))
-		if err != nil {
-			log.Fatalf("copying data failed: %v", err)
-		}
-	}()
-
+	if *args.SockPath == "" {
+		// Setup TCP/IP stack.
+		lwipWriter := core.NewLWIPStack().(io.Writer)
+		// Copy packets from tun device to lwip stack, it's the main loop.
+		go func() {
+			_, err := io.CopyBuffer(lwipWriter, tunDev, make([]byte, MTU))
+			if err != nil {
+				log.Fatalf("copying data failed: %v", err)
+			}
+		}()
+	}
 	log.Infof("Running tun2socks")
 
 	osSignals := make(chan os.Signal, 1)
