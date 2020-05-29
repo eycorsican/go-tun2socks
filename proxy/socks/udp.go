@@ -68,15 +68,15 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, input net.PacketConn) {
 			return
 		}
 		if n < 3 {
-			return
+			continue
 		}
 		addr := SplitAddr(buf[3:n])
 		if addr == nil {
-			return
+			continue
 		}
 		resolvedAddr, err := net.ResolveUDPAddr("udp", addr.String())
 		if err != nil {
-			return
+			continue
 		}
 		_, err = conn.WriteFrom(buf[int(3+len(addr)):n], resolvedAddr)
 		if err != nil {
