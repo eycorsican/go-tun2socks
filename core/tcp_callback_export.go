@@ -99,11 +99,11 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 			// lwip will store it and try again later.
 			return C.ERR_CONN
 		case LWIP_ERR_CLSD:
-			shouldFreePbuf = false
 			// lwip won't handle ERR_CLSD error for us, manually
 			// shuts down the rx side.
+			C.tcp_recved(tpcb, p.tot_len)
 			C.tcp_shutdown(tpcb, 1, 0)
-			return C.ERR_CLSD
+			return C.ERR_OK
 		default:
 			panic("unexpected error")
 		}
