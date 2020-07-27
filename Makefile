@@ -4,20 +4,26 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 VERSION=$(shell git describe --tags)
 DEBUG_LDFLAGS=''
-RELEASE_LDFLAGS='-s -w -X main.version=$(VERSION)'
+RELEASE_LDFLAGS=-s -w -X main.version=$(VERSION)
 BUILD_TAGS?=socks
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
 PROGRAM=tun2socks
 
-BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags $(RELEASE_LDFLAGS) -o $(BUILDDIR)/$(PROGRAM) -v -tags '$(BUILD_TAGS)'"
-XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags $(RELEASE_LDFLAGS) -tags '$(BUILD_TAGS)' --targets=*/* $(CMDDIR)"
+BUILD_CMD="cd $(CMDDIR) && $(GOBUILD) -ldflags '$(RELEASE_LDFLAGS)' -o $(BUILDDIR)/$(PROGRAM) -v -tags '$(BUILD_TAGS)'"
+BUILD_MUSL_CMD="cd $(CMDDIR) && CC=musl-gcc $(GOBUILD) -ldflags '$(RELEASE_LDFLAGS) -linkmode external -extldflags \"-static\" ' -o $(BUILDDIR)/$(PROGRAM) -v -tags '$(BUILD_TAGS)'"
+XBUILD_CMD="cd $(BUILDDIR) && $(XGOCMD) -ldflags '$(RELEASE_LDFLAGS)' -tags '$(BUILD_TAGS)' --targets=*/* $(CMDDIR)"
 
 all: build
 
 build:
 	mkdir -p $(BUILDDIR)
 	eval $(BUILD_CMD)
+
+build_musl:
+	mkdir -p $(BUILDDIR)
+	eval $(BUILD_CMD)
+
 
 xbuild:
 	mkdir -p $(BUILDDIR)

@@ -20,3 +20,13 @@ The following projects are using go-tun2socks:
 
 - https://github.com/mellow-io/mellow
 - https://github.com/eycorsican/kitsunebi-android
+
+-------
+## build for musl
+This build target depends on musl-gcc which can find in system path  
+    
+You can build for musl system by using this command  
+```bash
+make build_musl
+```
+
