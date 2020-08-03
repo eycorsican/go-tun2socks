@@ -108,14 +108,8 @@ func (h *udpHandler) connectInternal(conn core.UDPConn, dest string) error {
 		return err
 	}
 
-	if len(dest) != 0 {
-		targetAddr := ParseAddr(dest)
-		// write VER CMD RSV ATYP DST.ADDR DST.PORT
-		c.Write(append([]byte{5, socks5UDPAssociate, 0}, targetAddr...))
-	} else {
-		c.Write(append([]byte{5, socks5UDPAssociate, 0}, []byte{1, 0, 0, 0, 0, 0, 0}...))
-	}
-
+	c.Write(append([]byte{5, socks5UDPAssociate, 0}, []byte{1, 0, 0, 0, 0, 0, 0}...))
+	
 	// read VER REP RSV ATYP BND.ADDR BND.PORT
 	if _, err := io.ReadFull(c, buf[:3]); err != nil {
 		return err
