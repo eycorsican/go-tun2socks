@@ -4,7 +4,7 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 VERSION=$(shell git describe --tags)
 DEBUG_LDFLAGS=''
-RELEASE_LDFLAGS='-s -w -X main.version=$(VERSION)'
+RELEASE_LDFLAGS='-s -w -X main.version=$(VERSION) -extldflags "-static"'
 BUILD_TAGS?=socks
 BUILDDIR=$(shell pwd)/build
 CMDDIR=$(shell pwd)/cmd/tun2socks
