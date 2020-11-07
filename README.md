@@ -4,6 +4,9 @@
 
 A tun2socks implementation written in Go.
 
+> If you're looking for an easy to use `tun2socks` implementation for iOS, you might be interested in [`leaf`](https://github.com/eycorsican/leaf) and [`ileaf`](https://github.com/eycorsican/ileaf).
+> `leaf` [implements `tun2socks`](https://github.com/eycorsican/leaf/tree/master/leaf/src/proxy/tun/netstack) and it's written in Rust, with significantly less memory usage and significantly better performance compares to the Go version.
+
 To run the tun2socks command line program, depending on OS, you may need to run it as root, create the TUN interface and/or configure IP address of the interface manually. Moreover, you should add corresponding routes to the routing table manually. Mind that you often want to use some different system DNS resolvers, and your proxy server should support UDP.
 
 To use go-tun2socks as a library in your own project, refer to the following files/repos for some ideas:
