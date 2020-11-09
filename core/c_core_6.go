@@ -11,4 +11,7 @@ package core
 #include "c/core/ipv6/mld6.c"
 #include "c/core/ipv6/nd6.c"
 */
-import "C"
+import (
+	"C"
+	_ "github.com/eycorsican/go-tun2socks/core/c"
+)

@@ -19,4 +19,7 @@ package core
 #include "c/core/timeouts.c"
 #include "c/core/udp.c"
 */
-import "C"
+import (
+	"C"
+	_ "github.com/eycorsican/go-tun2socks/core/c"
+)

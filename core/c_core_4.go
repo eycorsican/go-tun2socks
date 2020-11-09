@@ -10,4 +10,7 @@ package core
 #include "c/core/ipv4/ip4.c"
 #include "c/core/ipv4/ip4_addr.c"
 */
-import "C"
+import (
+	"C"
+	_ "github.com/eycorsican/go-tun2socks/core/c"
+)
