@@ -1,3 +1,9 @@
+github.com/getlantern/boom v0.0.0-20150326152829-3e0ffb14e2bb h1:vXMH6oWInNnThji48sf4jaMkn6ssuZn7tEVGXjd2UAU=
+github.com/getlantern/boom v0.0.0-20150326152829-3e0ffb14e2bb/go.mod h1:d8KtYY7BX6YSLj7IxyJM6bjKbujEt5u0qDH6V8y6Tzk=
+github.com/libp2p/go-buffer-pool v0.0.2 h1:QNK2iAFa8gjAe1SPz6mHSMuCcjs+X1wlHzeOSqcmlfs=
+github.com/libp2p/go-buffer-pool v0.0.2/go.mod h1:MvaB6xw5vOrDl8rYZGLFdKAuk/hRoRZd1Vi32+RXyFM=
+github.com/rakyll/boom v0.0.0-20160902200215-e99ce27f0878 h1:63fXEUH0TkzI0ANM6zC0AaT8GyUo/LOEyFbu3nEEOw4=
+github.com/rakyll/boom v0.0.0-20160902200215-e99ce27f0878/go.mod h1:ZHn+JM35fS5tXrHey+H4r9JagDTX5bGk2WHCubArQUU=
 github.com/songgao/water v0.0.0-20190725173103-fd331bda3f4b h1:+y4hCMc/WKsDbAPsOQZgBSaSZ26uh2afyaWeVg/3s/c=
 github.com/songgao/water v0.0.0-20190725173103-fd331bda3f4b/go.mod h1:P5HUIBuIWKbyjl083/loAegFkfbFNx5i2qEP4CNbm7E=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
@@ -6,4 +12,5 @@ golang.org/x/net v0.0.0-20191021144547-ec77196f6094/go.mod h1:z5CRVTTTmAJ677TzLL
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 h1:YyJpGZS1sBuBCzLAR1VEpK193GlqGZbnPFnPV/5Rsb4=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
