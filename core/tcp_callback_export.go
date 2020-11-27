@@ -76,17 +76,7 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		}
 	}
 
-	var buf []byte
-	var totlen = int(p.tot_len)
-	if p.tot_len == p.len {
-		buf = (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:totlen:totlen]
-	} else {
-		buf = NewBytes(totlen)
-		defer FreeBytes(buf)
-		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
-	}
-
-	rerr := conn.(TCPConn).Receive(buf[:totlen])
+	readCh, rerr := conn.(TCPConn).Receive()
 	if rerr != nil {
 		switch rerr.(*lwipError).Code {
 		case LWIP_ERR_ABRT:
@@ -107,6 +97,26 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		default:
 			panic("unexpected error")
 		}
+	}
+
+	select {
+	case buf, ok := <-readCh:
+		if !ok {
+			C.tcp_recved(tpcb, p.tot_len)
+			C.tcp_shutdown(tpcb, 1, 0)
+			return C.ERR_OK
+		}
+		if len(buf) < int(p.tot_len) {
+			conn.(TCPConn).ReceiveDone(-1)
+			shouldFreePbuf = false
+			return C.ERR_CONN
+		}
+		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
+		conn.(TCPConn).ReceiveDone(int(p.tot_len))
+		C.tcp_recved(tpcb, p.tot_len)
+	default:
+		shouldFreePbuf = false
+		return C.ERR_CONN
 	}
 
 	return C.ERR_OK

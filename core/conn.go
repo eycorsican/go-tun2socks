@@ -15,7 +15,9 @@ type TCPConn interface {
 	Sent(len uint16) error
 
 	// Receive will be called when data arrives from TUN.
-	Receive(data []byte) error
+	Receive() (<-chan []byte, error)
+
+	ReceiveDone(int)
 
 	// Err will be called when a fatal error has occurred on the connection.
 	// The corresponding pcb is already freed when this callback is called
