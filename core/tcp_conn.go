@@ -66,9 +66,10 @@ type tcpConn struct {
 	connKey       uint32
 	canWrite      *sync.Cond // Condition variable to implement TCP backpressure.
 	state         tcpConnState
-	sndPipeReader *io.PipeReader
-	sndPipeWriter *io.PipeWriter
+	readCh        chan []byte
+	readDoneCh    chan int
 	closeOnce     sync.Once
+	readCloseOnce sync.Once
 	closeErr      error
 }
 
@@ -86,18 +87,17 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 	setTCPErrCallback(pcb)
 	setTCPPollCallback(pcb, C.u8_t(TCP_POLL_INTERVAL))
 
-	pipeReader, pipeWriter := io.Pipe()
 	conn := &tcpConn{
-		pcb:           pcb,
-		handler:       handler,
-		localAddr:     ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
-		remoteAddr:    ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
-		connKeyArg:    connKeyArg,
-		connKey:       connKey,
-		canWrite:      sync.NewCond(&sync.Mutex{}),
-		state:         tcpNewConn,
-		sndPipeReader: pipeReader,
-		sndPipeWriter: pipeWriter,
+		pcb:        pcb,
+		handler:    handler,
+		localAddr:  ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
+		remoteAddr: ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
+		connKeyArg: connKeyArg,
+		connKey:    connKey,
+		canWrite:   sync.NewCond(&sync.Mutex{}),
+		state:      tcpNewConn,
+		readCh:     make(chan []byte, 1),
+		readDoneCh: make(chan int, 1),
 	}
 
 	// Associate conn with key and save to the global map.
@@ -180,16 +180,15 @@ func (conn *tcpConn) receiveCheck() error {
 	return nil
 }
 
-func (conn *tcpConn) Receive(data []byte) error {
+func (conn *tcpConn) Receive() (<-chan []byte, error) {
 	if err := conn.receiveCheck(); err != nil {
-		return err
+		return nil, err
 	}
-	n, err := conn.sndPipeWriter.Write(data)
-	if err != nil {
-		return NewLWIPError(LWIP_ERR_CLSD)
-	}
-	C.tcp_recved(conn.pcb, C.u16_t(n))
-	return NewLWIPError(LWIP_ERR_OK)
+	return conn.readCh, nil
+}
+
+func (conn *tcpConn) ReceiveDone(n int) {
+	conn.readDoneCh <- n
 }
 
 func (conn *tcpConn) Read(data []byte) (int, error) {
@@ -204,12 +203,12 @@ func (conn *tcpConn) Read(data []byte) (int, error) {
 	}
 	conn.Unlock()
 
-	// Handler should get EOF.
-	n, err := conn.sndPipeReader.Read(data)
-	if err == io.ErrClosedPipe {
-		err = io.EOF
+	conn.readCh <- data
+	n := <-conn.readDoneCh
+	if n == -1 {
+		return 0, errors.New("insufficient read buffer")
 	}
-	return n, err
+	return n, nil
 }
 
 // writeInternal enqueues data to snd_buf, and treats ERR_MEM returned by tcp_write not an error,
@@ -312,7 +311,8 @@ func (conn *tcpConn) CloseWrite() error {
 }
 
 func (conn *tcpConn) CloseRead() error {
-	return conn.sndPipeReader.Close()
+	conn.readCloseOnce.Do(conn.closeReadCh)
+	return nil
 }
 
 func (conn *tcpConn) Sent(len uint16) error {
@@ -386,6 +386,11 @@ func (conn *tcpConn) close() {
 	}
 }
 
+func (conn *tcpConn) closeReadCh() {
+	close(conn.readCh)
+	close(conn.readDoneCh)
+}
+
 func (conn *tcpConn) setLocalClosed() error {
 	conn.Lock()
 	defer conn.Unlock()
@@ -393,9 +398,6 @@ func (conn *tcpConn) setLocalClosed() error {
 	if conn.state >= tcpClosing || conn.state == tcpReceiveClosed {
 		return nil
 	}
-
-	// Causes the read half of the pipe returns.
-	conn.sndPipeWriter.Close()
 
 	if conn.state == tcpWriteClosed {
 		conn.state = tcpClosing
@@ -464,8 +466,7 @@ func (conn *tcpConn) release() {
 		freeConnKeyArg(conn.connKeyArg)
 		tcpConns.Delete(conn.connKey)
 	}
-	conn.sndPipeWriter.Close()
-	conn.sndPipeReader.Close()
+	conn.readCloseOnce.Do(conn.closeReadCh)
 	conn.state = tcpClosed
 }
 
