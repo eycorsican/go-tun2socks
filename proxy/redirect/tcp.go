@@ -4,8 +4,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/eycorsican/go-tun2socks/common/log"
-	"github.com/eycorsican/go-tun2socks/core"
+	"github.com/kiarsy/go-tun2socks/common/log"
+	"github.com/kiarsy/go-tun2socks/core"
 )
 
 // To do a benchmark using iperf3 locally, you may follow these steps:

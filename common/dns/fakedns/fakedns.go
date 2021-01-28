@@ -9,13 +9,13 @@ import (
 
 	"github.com/miekg/dns"
 
-	cdns "github.com/eycorsican/go-tun2socks/common/dns"
-	"github.com/eycorsican/go-tun2socks/common/log"
-	"github.com/eycorsican/go-tun2socks/core"
+	cdns "github.com/kiarsy/go-tun2socks/common/dns"
+	"github.com/kiarsy/go-tun2socks/common/log"
+	"github.com/kiarsy/go-tun2socks/core"
 )
 
 const (
-	FakeResponseTtl uint32 = 1          // in sec
+	FakeResponseTtl uint32 = 1 // in sec
 )
 
 type simpleFakeDns struct {

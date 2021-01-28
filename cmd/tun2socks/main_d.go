@@ -7,10 +7,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/eycorsican/go-tun2socks/common/log"
-	"github.com/eycorsican/go-tun2socks/core"
-	"github.com/eycorsican/go-tun2socks/proxy/d"
-	"github.com/eycorsican/go-tun2socks/proxy/socks"
+	"github.com/kiarsy/go-tun2socks/common/log"
+	"github.com/kiarsy/go-tun2socks/core"
+	"github.com/kiarsy/go-tun2socks/proxy/d"
+	"github.com/kiarsy/go-tun2socks/proxy/socks"
 )
 
 func init() {

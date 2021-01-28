@@ -9,11 +9,11 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	"github.com/eycorsican/go-tun2socks/common/dns"
-	"github.com/eycorsican/go-tun2socks/common/log"
-	"github.com/eycorsican/go-tun2socks/common/lsof"
-	"github.com/eycorsican/go-tun2socks/common/stats"
-	"github.com/eycorsican/go-tun2socks/core"
+	"github.com/kiarsy/go-tun2socks/common/dns"
+	"github.com/kiarsy/go-tun2socks/common/log"
+	"github.com/kiarsy/go-tun2socks/common/lsof"
+	"github.com/kiarsy/go-tun2socks/common/stats"
+	"github.com/kiarsy/go-tun2socks/core"
 )
 
 type tcpHandler struct {

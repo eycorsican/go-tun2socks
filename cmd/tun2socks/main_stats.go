@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/eycorsican/go-tun2socks/common/stats/session"
+	"github.com/kiarsy/go-tun2socks/common/stats/session"
 )
 
 func init() {

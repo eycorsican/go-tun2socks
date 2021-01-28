@@ -6,7 +6,7 @@ import (
 
 	vlog "v2ray.com/core/common/log"
 
-	"github.com/eycorsican/go-tun2socks/common/log"
+	"github.com/kiarsy/go-tun2socks/common/log"
 )
 
 type v2rayLogger struct {

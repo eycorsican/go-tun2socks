@@ -8,8 +8,8 @@ import (
 
 	"github.com/miekg/dns"
 
-	cdns "github.com/eycorsican/go-tun2socks/common/dns"
-	"github.com/eycorsican/go-tun2socks/common/log"
+	cdns "github.com/kiarsy/go-tun2socks/common/dns"
+	"github.com/kiarsy/go-tun2socks/common/log"
 )
 
 const minCleanupInterval = 5 * time.Minute

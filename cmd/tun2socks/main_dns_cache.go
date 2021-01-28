@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	"github.com/eycorsican/go-tun2socks/common/dns/cache"
+	"github.com/kiarsy/go-tun2socks/common/dns/cache"
 )
 
 func init() {
